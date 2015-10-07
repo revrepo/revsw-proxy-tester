@@ -13,7 +13,10 @@
     },
     "license": "WTFPL",
     "dependencies": {
-        "underscore": "*"
+        "underscore": "*",
+        "config": "*",
+        "express": "*",
+        "elasticsearch": "*"
     },
     "devDependencies": {
         "mocha": "*",
