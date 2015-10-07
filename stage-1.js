@@ -194,7 +194,7 @@ var processWithoutReferer = function( data ) {
 
     _.each( data.aggregations.group_by_domain.buckets, function( domain ) {
         current.domain = domain.key;
-        console.log( current.domain );
+        // console.log( current.domain );
         _.each( domain.group_by_method.buckets, function( method ) {
             current.method = method.key;
             _.each( method.group_by_port.buckets, function( port ) {
@@ -216,8 +216,8 @@ var processWithoutReferer = function( data ) {
 //  ----------------------------------------------------------------------------------------------//
 
 var client = new elastic.Client( {
-    host: config.elastic.host,
-    apiVestion: config.elastic.host,
+    host: config.get( 'elastic.host' ),
+    apiVestion: config.get( 'elastic.version' ),
     // log: 'trace',
     log: [{
         type: 'stdio',
