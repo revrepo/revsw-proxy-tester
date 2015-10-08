@@ -14,18 +14,13 @@
     "license": "WTFPL",
     "dependencies": {
         "underscore": "*",
+        "bluebird": "*",
         "config": "*",
         "express": "*",
         "elasticsearch": "*"
     },
     "devDependencies": {
         "mocha": "*",
-        "chai": "*",
-        "karma": "*",
-        "karma-chrome-launcher": "*",
-        "karma-firefox-launcher": "*",
-        "karma-inject-html": "0.0.1",
-        "karma-spec-reporter": "*",
-        "karma-mocha": "*"
+        "chai": "*"
     }
 }

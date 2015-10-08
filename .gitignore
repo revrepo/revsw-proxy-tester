@@ -1,3 +1,5 @@
 node_modules
 sandbox
 *sublime*
+sftp-config.json
+data/*
