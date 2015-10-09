@@ -40,6 +40,7 @@ var config = {
     topAgents: 50,
     topReferers: 100,
     topURLs: 100,
+    aggsCollectMode: 'breadth_first',   //  depth_first/breadth_first, https://www.elastic.co/guide/en/elasticsearch/guide/current/_preventing_combinatorial_explosions.html
 };
 
 var client = new elastic.Client( {
@@ -48,7 +49,8 @@ var client = new elastic.Client( {
     log: [{
         type: 'stdio',
         levels: ['error', 'warning']
-    }]
+    }],
+    requestTimeout: 90000
 } );
 
 //  ----------------------------------------------------------------------------------------------//
@@ -60,9 +62,6 @@ var health = exports.health = function( pars ) {
             console.trace( 'Logs model, health(...), Elasticsearch error:', err );
         });
 }
-
-//  cached list of domains
-var domains_ = [];
 
 //  ---------------------------------
 var domainsList = exports.domainsList = function( pars ) {
@@ -85,12 +84,25 @@ var domainsList = exports.domainsList = function( pars ) {
             },
         }
     }).then( function( resp ) {
-        domains_ = resp.aggregations.group_by_domain.buckets;
-        return domains_;
+        return resp.aggregations.group_by_domain.buckets;
     }).error( function( err ) {
         console.trace( 'Logs model, domainsList(...), Elasticsearch error:', err );
     });
 }
+
+//  ---------------------------------
+var indicesList = exports.indicesList = function( pars ) {
+
+    pars = pars || {};
+    pars.index = pars.index || 'logstash-*';
+
+    return client.cat.indices( pars )
+        .error( function( err ) {
+            console.trace( 'Logs model, indicesList(...), Elasticsearch error:', err );
+        });
+}
+
+//  top requests collector -----------------------------------------------------------------------//
 
 //  ---------------------------------
 //  convert retrieved complex structure into flat array
@@ -168,11 +180,13 @@ var collectTopRequests = exports.collectTopRequests = function( pars ) {
             field: 'referer'
         }
     };
+
     var no_ref_aggs = {
         group_by_URL: {
             terms: {
                 field: 'request.raw',
                 size: config.topURLs,
+                collect_mode: config.aggsCollectMode,
             },
         }
     };
@@ -181,6 +195,7 @@ var collectTopRequests = exports.collectTopRequests = function( pars ) {
             terms: {
                 field: 'referer.raw',
                 size: config.topReferers,
+                collect_mode: config.aggsCollectMode,
             },
             aggs: no_ref_aggs
         }
@@ -191,6 +206,7 @@ var collectTopRequests = exports.collectTopRequests = function( pars ) {
                 field: 'domain.raw',
                 size: 100,
                 min_doc_count: 50,
+                collect_mode: config.aggsCollectMode,
                 exclude: '-'
             },
             aggs: {
@@ -198,18 +214,21 @@ var collectTopRequests = exports.collectTopRequests = function( pars ) {
                     terms: {
                         field: 'method',
                         size: 10,
+                        collect_mode: config.aggsCollectMode,
                     },
                     aggs: {
                         group_by_port: {
                             terms: {
                                 field: 'ipport',
                                 size: 2,    //  80 | 443
+                                collect_mode: config.aggsCollectMode,
                             },
                             aggs: {
                                 group_by_agent: {
                                     terms: {
                                         field: 'agent.raw',
                                         size: config.topAgents,
+                                        collect_mode: config.aggsCollectMode,
                                     },
                                     aggs: ref_aggs
                                 }
@@ -262,6 +281,10 @@ var collectTopRequests = exports.collectTopRequests = function( pars ) {
             }
         });
     }).then( function( resp ) {
+
+        //  debug
+        console.dir( resp, { colors: false, depth: null } );
+        //  debug
 
         var content = handle_response_( resp );
         console.log( 'collectTopRequests: ' + content.length + ' records' );
