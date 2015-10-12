@@ -17,9 +17,11 @@
         "bluebird": "*",
         "config": "*",
         "express": "*",
-        "elasticsearch": "*"
+        "elasticsearch": "*",
+        "request": "*"
     },
     "devDependencies": {
+        "request-debug": "*",
         "mocha": "*",
         "chai": "*"
     }

@@ -26,13 +26,35 @@ global.app_require = function ( name ) {
 var logs = app_require( 'models/logs.js' ),
     _ = require( 'underscore' );
 
-console.log( 'started ...' );
+//  some utils -----------------------------------------------------------------------------------//
 
-logs.collectTopRequests({
-    index: 'logstash-2015.10.08',
+var Promise = require( 'bluebird' ),
+    appendFile = Promise.promisify( require( 'fs' ).appendFile );
+
+//  assuming content is array withh collected requests
+var storeContent = function( content, filename ) {
+
+    if ( content.length ) {
+        content = JSON.stringify( content );
+        // content = content.replace( /^\[|\]$/g, '' ) + ',';
+        return appendFile( filename, content );
+    }
+    return Promise.resolve( true );
+}
+
+
+
+//  ----------------------------------------------------------------------------------------------//
+
+console.log( 'long run started ...' );
+
+logs.aggregateTopRequests({
+    index: 'logstash-2015.10.10',
+    minCount: 300,
     domains: [
+        's.mcstatic.com',
         // 'www.mbeans.com',
-        'res.mccont.com',
+        // 'res.mccont.com',
         // 'portal-qa-domain.revsw.net',
         // 'www.metacafe.com',
         // 'quic-test.revsw.net',
@@ -40,7 +62,10 @@ logs.collectTopRequests({
         // 'www3.metacafe.com',
         // 'portal-qa-domain.revsw.net'
     ],
-    file: __dirname + '/data/test.json'
+}).then( function( res ) {
+    // console.dir( res , { colors: false, depth: null } );
+    console.log( res.length + ' records received' );
+    return storeContent( res, 'data/s.mcstatic.com.json' );
 });
 
 
@@ -141,4 +166,6 @@ logs.collectTopRequests({
 //            { key: 'www.thegreatdadsproject.org', doc_count: 1167 },
 //            { key: 'www.mbeans.com', doc_count: 1166 } ] } } }
 
+
+// //  ---------------------------------
 
