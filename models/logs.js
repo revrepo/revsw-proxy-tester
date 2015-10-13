@@ -18,11 +18,13 @@
 
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
+/*jshint -W079 */
 
 var app_config = require('config'),
   _ = require('underscore'),
   elastic = require('elasticsearch'),
-  Promise = require('bluebird');
+  Promise = require('bluebird'),
+  logger = require('revsw-logger')(app_config.get('log_config'));
 
 //  ---------------------------------
 //  create logstash index name for the current date(today): "logstash-2015.10.01"
@@ -59,7 +61,7 @@ exports.health = function(pars) {
 
   return client.cluster.health(pars)
     .error(function(err) {
-      console.trace('Logs model, health(...), Elasticsearch error:', err);
+      logger.error('Logs model, health(...), Elasticsearch error:', err);
     });
 };
 
@@ -78,7 +80,7 @@ exports.indicesList = function(pars) {
 
   return client.cat.indices(pars)
     .error(function(err) {
-      console.trace('Logs model, indicesList(...), Elasticsearch error:', err);
+      logger.error('Logs model, indicesList(...), Elasticsearch error:', err);
     });
 };
 
@@ -111,7 +113,7 @@ exports.domainsList = function(pars) {
   }).then(function(resp) {
     return resp.aggregations.group_by_domain.buckets;
   }).error(function(err) {
-    console.trace('Logs model, domainsList(...), Elasticsearch error:', err);
+    logger.error('Logs model, domainsList(...), Elasticsearch error:', err);
   });
 };
 
@@ -178,9 +180,7 @@ var handle_aggregated_stage_2_ = function(resp) {
 //   count: 58552 }
 var run_second_query_ = function(data) {
 
-  if (curr_pars.verbose) {
-    console.log('  second lvl query for: ' + data.method + ':' + data.ipport + data.request);
-  }
+  logger.verbose('  second lvl query for: ' + data.method + ':' + data.ipport + data.request);
 
   return client.search({
     index: curr_pars.index,
@@ -234,10 +234,7 @@ var run_second_query_ = function(data) {
     }
   }).then(function(resp) {
 
-    if (curr_pars.verbose) {
-      console.log('   COMPLETED 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_pars.rcount ) + ')');
-    }
-
+    logger.verbose('   COMPLETED 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_pars.rcount ) + ')');
     data.lvl2 = resp;
     return data;
   });
@@ -272,7 +269,7 @@ exports.aggregateTopRequests = function(pars) {
 
   pars = pars || {};
   if (pars.index === '*' || pars.index === 'logstash*' || pars.index === 'logstash-*') {
-    throw ('Too wide indices select!');
+    throw (new RangeError('Too wide indices select!'));
   }
 
   _.defaults(pars, logs_config);
@@ -283,12 +280,10 @@ exports.aggregateTopRequests = function(pars) {
   curr_pars.rcount = 0;
 
   if (pars.verbose) {
-    console.log('run 1st lvl aggregation, conf:');
-    console.dir(pars, {
-      colors: false,
-      depth: null
-    });
+    logger.transports.console.level = 'verbose';
   }
+  logger.info('run 1st lvl aggregation');
+  logger.verbose('config: ', pars);
 
   return client.search({
 
@@ -335,7 +330,7 @@ exports.aggregateTopRequests = function(pars) {
   }).then(function(resp) {
 
     var responses = handle_aggregated_stage_1_(resp);
-    console.log('1st lvl done, ' + responses.length + ' records');
+    logger.info('1st lvl done, ' + responses.length + ' records');
 
     return Promise.map(responses, run_second_query_, {
       concurrency: 4
@@ -344,11 +339,11 @@ exports.aggregateTopRequests = function(pars) {
   }).then(function(resp) {
 
     var responses = handle_aggregated_stage_2_(resp);
-    console.log('2nd lvl done, ' + responses.length + ' records');
+    logger.info('2nd lvl done, ' + responses.length + ' records');
 
     return responses;
 
   }).error(function(err) {
-    console.trace('Logs model, aggregateTopRequests(...), Elasticsearch error:', err);
+    logger.error('Logs model, aggregateTopRequests(...), Elasticsearch error:', err);
   });
 };

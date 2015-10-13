@@ -17,18 +17,23 @@
  */
 
 //  ----------------------------------------------------------------------------------------------//
+/*jshint -W079 */
 'use strict';
 
 var logs = require('./models/logs.js'),
   // _ = require('underscore'),
   Promise = require('bluebird'),
-  fs = Promise.promisifyAll(require('fs'));
+  fs = Promise.promisifyAll(require('fs')),
+  app_config = require('config'),
+  logger = require('revsw-logger')(app_config.get('log_config'));
 
 
 //  CLI -----------------------------
 
 var showHelp = function() {
-  console.log('\n  Usage:');
+  //  here's no place for logger
+  console.log('\n  A tools collection to test the functionality of new proxy server versions');
+  console.log('  Usage:');
   console.log('    -C :');
   console.log('        Collection mode (default)');
   console.log('    -d, --domain :');
@@ -49,7 +54,8 @@ var showHelp = function() {
   console.log('        (guess)');
   console.log('\n  CAUTION:');
   console.log('        Collection mode puts a heavy load on ES cluster, run it against one index,');
-  console.log('        avoid using broad index filters like logstash-* !\n');
+  console.log('        avoid using broad index filters like logstash-* !');
+  console.log('\n  "NODE_ENV=production" should be inserted before "node collect ..." to run it against the production cluster\n');
 };
 
 var conf = {},
@@ -93,7 +99,7 @@ for (var i = 0; i < parslen; ++i) {
     action = 'health';
     curr_par = 'level';
   } else {
-    console.error('\n    unknown parameter: ' + pars[i]);
+    logger.error('\n    unknown parameter: ' + pars[i]);
     showHelp();
     return;
   }
@@ -104,7 +110,7 @@ for (var i = 0; i < parslen; ++i) {
 if (action === 'collect') {
 
   if (!conf.domain) {
-    console.error('\n    domain name required.');
+    logger.error('\n    domain name required.');
     showHelp();
     return;
   }
@@ -117,7 +123,7 @@ if (action === 'collect') {
     .then(function(res) {
       var size = res.length;
       fs.writeFileAsync(conf.file + '.json', JSON.stringify(res, null, 2), 'utf8');
-      console.log('done, ' + size + ' records saved.');
+      logger.info('done, ' + size + ' records saved.');
     });
 
   return;
@@ -128,8 +134,7 @@ if (action === 'health') {
 
   logs.health(conf)
     .then(function(res) {
-      console.log('Cluster health status:');
-      console.dir( res, { colors: true, depth: null } );
+      logger.info('Cluster health status:\n', res);
     });
 
   return;
@@ -140,8 +145,7 @@ if (action === 'domains') {
 
   logs.domainsList(conf)
     .then(function(res) {
-      console.log('Domains list:');
-      console.log(res);
+      logger.info('Domains list:', res);
     });
 
   return;
@@ -152,8 +156,7 @@ if (action === 'indices') {
 
   logs.indicesList(conf)
     .then(function(res) {
-      console.log('Indices list:');
-      console.log(res);
+      logger.info('Indices list:\n', res);
     });
 
   return;

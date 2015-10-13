@@ -18,10 +18,12 @@
 
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
+/*jshint -W079 */
 
 var _ = require('underscore'),
   Promise = require('bluebird'),
-  req = Promise.promisify(require('request'));
+  req = Promise.promisify(require('request')),
+  logger = require('revsw-logger')(app_config.get('log_config'));
 
 //  ---------------------------------
 //  defaults
@@ -127,11 +129,7 @@ exports.fire = function(req_array, pars) {
 
   return Promise.all(fired)
     .error(function(err) {
-      console.log('shit happens');
-      console.dir(err, {
-        colors: false,
-        depth: null
-      });
+      logger.error('requests model, fire(...), error:', err);
     });
 };
 

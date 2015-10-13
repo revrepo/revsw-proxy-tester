@@ -1,7 +1,28 @@
 {
-    "port": 1337,
-    "elastic": {
-        "host": "TESTSJC20-ES01.revsw.net:9200",
-        "version": "1.5"
+  "port": 1337,
+  "elastic": {
+    "host": "TESTSJC20-ES01.revsw.net:9200",
+    "version": "1.5"
+  },
+  "log_config": {
+    "transports": {
+      "Console": {
+        "level": "info",
+        "colorize": true,
+        "prettyPrint": true,
+        "humanReadableUnhandledException": true,
+        "showLevel": false
+      },
+      "File": {
+        "filename": "./log/revsw-proxy-tester.log",
+        "level": "info",
+        "prettyPrint": true
+      },
+      "Rsyslog": {
+        "level": "error",
+        "app-name": "revsw-proxy-tester"
+      }
     }
+  }
 }
+

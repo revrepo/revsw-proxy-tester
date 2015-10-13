@@ -18,17 +18,20 @@
 
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
+/*jshint -W079 */
 
 //  ---------------------------------
 var reqs = require('./models/requests.js'),
-  // _ = require('underscore'),
   Promise = require('bluebird'),
-  fs = Promise.promisifyAll(require('fs'));
+  fs = Promise.promisifyAll(require('fs')),
+  app_config = require('config'),
+  logger = require('revsw-logger')(app_config.get('log_config'));
 
 //  CLI -----------------------------
 
 var showHelp = function() {
-  console.log('\n  Usage:');
+  console.log('\n  A tools collection to test the functionality of new proxy server versions');
+  console.log('  Usage:');
   console.log('    -i, --input :');
   console.log('        file name to get data from, required, assuming json');
   console.log('    --prod-proxy :');
@@ -70,7 +73,7 @@ for (var i = 0; i < parslen; ++i) {
   } else if (pars[i] === '-v' || pars[i] === '--verbose') {
     conf.verbose = true;
   } else {
-    console.error('\n    unknown parameter: ' + pars[i]);
+    logger.error('\n    unknown parameter: ' + pars[i]);
     showHelp();
     return;
   }
@@ -79,7 +82,7 @@ for (var i = 0; i < parslen; ++i) {
 //  check ---------------------------
 
 if (!conf.file) {
-  console.error('\n    input file name required.');
+  logger.error('\n    input file name required.');
   showHelp();
   return;
 }
@@ -92,18 +95,18 @@ var ratio = 0;
 fs.readFileAsync(conf.file)
   .then(JSON.parse)
   .then(function(requests) {
-    console.log(requests.length + ' logged requests loaded. fired ...');
+    logger.info(requests.length + ' logged requests loaded. fired ...');
     return reqs.fire(requests, conf);
   })
   .then(function(responses) {
     var len = responses.length / 2;
     var diffs = reqs.compare(responses);
     ratio = 100 * (len - diffs.length) / len;
-    console.log(len + ' responses received');
-    console.log(diffs.length + ' failure comparisons');
-    console.log(ratio.toFixed(2) + ' passed ratio');
+    logger.info(len + ' responses received');
+    logger.info(diffs.length + ' failure comparisons');
+    logger.info(ratio.toFixed(2) + ' passed ratio');
     if (diffs.length) {
-      console.log('diffs are being saved to ' + conf.file + '.diff.json');
+      logger.warn('diffs are being saved to ' + conf.file + '.diff.json');
       return fs.writeFileAsync(conf.file + '.diff.json', JSON.stringify(diffs, null, 2));
     }
   })
@@ -115,10 +118,6 @@ fs.readFileAsync(conf.file)
     process.exit(0);
   })
   .error(function(err) {
-    console.log('shit happens');
-    console.dir(err, {
-      colors: false,
-      depth: null
-    });
+    logger.error('shit happens', err);
     process.exit(255);
   });

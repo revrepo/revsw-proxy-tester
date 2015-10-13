@@ -16,9 +16,9 @@
         "underscore": "*",
         "bluebird": "*",
         "config": "*",
-        "express": "*",
         "elasticsearch": "*",
-        "request": "*"
+        "request": "*",
+        "revsw-logger": "*"
     },
     "devDependencies": {
         "request-debug": "*",
