@@ -106,10 +106,13 @@ var compare_ = function( prod, test ) {
 
 var cached_req_array;
 
+//  ---------------------------------
+//  fire requests simultaneously via production and test proxies
 var fire = exports.fire = function( req_array, pars ) {
 
     cached_req_array = req_array;
     pars = pars || {};
+    cached_pars = pars;
     fired = [];
     for ( var i = 0, len = req_array.length; i < len; ++i ) {
         var opts = buildReq( req_array[i] );
@@ -129,11 +132,12 @@ var fire = exports.fire = function( req_array, pars ) {
 }
 
 //  ---------------------------------
+//  compare received prod/test responses and returns array with differences
 var compare = exports.compare = function( response ) {
 
     var diffs = [];
     for ( var i = 0, len = response.length; i < len; i += 2 ) {
-        var headers_prod = response[i][0].headers,  //  response[i][1] <-- repsponse's body
+        var headers_prod = response[i][0].headers,  //  response[i][1] <-- response's body
             headers_test = response[i+1][0].headers;
 
         if ( !compare_( headers_prod, headers_test ) ) {
