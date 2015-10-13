@@ -121,9 +121,8 @@ if (action === 'collect') {
 
   logs.aggregateTopRequests(conf)
     .then(function(res) {
-      var size = res.length;
       fs.writeFileAsync(conf.file + '.json', JSON.stringify(res, null, 2), 'utf8');
-      logger.info('done, ' + size + ' records saved.');
+      logger.info('file ' + conf.file + '.json, saved.' );
     });
 
   return;

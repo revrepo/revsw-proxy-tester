@@ -180,7 +180,8 @@ var handle_aggregated_stage_2_ = function(resp) {
 //   count: 58552 }
 var run_second_query_ = function(data) {
 
-  logger.verbose('  second lvl query for: ' + data.method + ':' + data.ipport + data.request);
+  logger.verbose('  second lvl query for: ' + data.method + ':' + data.ipport + data.request );
+  var took = Date.now();
 
   return client.search({
     index: curr_pars.index,
@@ -234,7 +235,8 @@ var run_second_query_ = function(data) {
     }
   }).then(function(resp) {
 
-    logger.verbose('   COMPLETED 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_pars.rcount ) + ')');
+    took = ( ( Date.now() - took ) / 1000 ).toFixed( 2 );
+    logger.verbose('   COMPLETED 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_pars.rcount ) + ',' + took + 's)');
     data.lvl2 = resp;
     return data;
   });
@@ -275,15 +277,16 @@ exports.aggregateTopRequests = function(pars) {
   _.defaults(pars, logs_config);
   pars.index = pars.index || last_index_();
   pars.minCount = parseInt(pars.minCount);
-  pars.minCount2Lvl = pars.minCount / 4;
+  pars.minCount2Lvl = Math.ceil( pars.minCount / 4 );
   curr_pars = pars;
   curr_pars.rcount = 0;
 
   if (pars.verbose) {
     logger.transports.console.level = 'verbose';
   }
-  logger.info('run 1st lvl aggregation');
   logger.verbose('config: ', pars);
+  logger.info('1st lvl aggregation started');
+  var took = Date.now();
 
   return client.search({
 
@@ -330,7 +333,9 @@ exports.aggregateTopRequests = function(pars) {
   }).then(function(resp) {
 
     var responses = handle_aggregated_stage_1_(resp);
-    logger.info('1st lvl done, ' + responses.length + ' records');
+    took = ( ( Date.now() - took ) / 1000 ).toFixed(2);
+    logger.info('1st lvl done, ' + responses.length + ' records, in ' + took + 's');
+    took = Date.now();
 
     return Promise.map(responses, run_second_query_, {
       concurrency: 4
@@ -339,7 +344,8 @@ exports.aggregateTopRequests = function(pars) {
   }).then(function(resp) {
 
     var responses = handle_aggregated_stage_2_(resp);
-    logger.info('2nd lvl done, ' + responses.length + ' records');
+    took = ( ( Date.now() - took ) / 1000 ).toFixed(2);
+    logger.info('2nd lvl done, ' + responses.length + ' records, in ' + took + 's');
 
     return responses;
 

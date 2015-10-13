@@ -92,19 +92,22 @@ if (!conf.file) {
 
 //  ----------------------------------------------------------------------------------------------//
 
-var ratio = 0;
+var ratio = 0,
+  took;
 
 fs.readFileAsync(conf.file)
   .then(JSON.parse)
   .then(function(requests) {
     logger.info(requests.length + ' logged requests loaded. fired ...');
+    took = Date.now();
     return reqs.fire(requests, conf);
   })
   .then(function(responses) {
     var len = responses.length / 2;
     var diffs = reqs.compare(responses);
     ratio = 100 * (len - diffs.length) / len;
-    logger.info(len + ' responses received');
+    took = ( ( Date.now() - took ) / 1000 ).toFixed(2);
+    logger.info(len + ' responses received, in ' + took + 's');
     logger.info(diffs.length + ' failure comparisons');
     logger.info(ratio.toFixed(2) + ' passed ratio');
     if (diffs.length) {
