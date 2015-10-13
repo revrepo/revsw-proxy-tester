@@ -1,4 +1,3 @@
-
 /*************************************************************************
  *
  * REV SOFTWARE CONFIDENTIAL
@@ -18,68 +17,70 @@
  */
 
 //  ----------------------------------------------------------------------------------------------//
+'use strict';
 
-var app_config = app_require( 'config/app.js' ),
-    _ = require( 'underscore' ),
-    elastic = require( 'elasticsearch' ),
-    Promise = require( 'bluebird' );
+var app_config = app_require('config/app.js'),
+  _ = require('underscore'),
+  elastic = require('elasticsearch'),
+  Promise = require('bluebird');
 
 //  ---------------------------------
 //  create logstash index name for the current date(today): "logstash-2015.10.01"
 var last_index_ = function() {
-    return 'logstash-' + ( new Date() ).toISOString().substr( 0, 10 ).replace( /\-/g, '.' );
-}
+  return 'logstash-' + (new Date()).toISOString().substr(0, 10).replace(/\-/g, '.');
+};
 
 //  ---------------------------------
 //  defaults
 var logs_config = {
-    topAgents: 50,
-    topReferers: 100,
-    topURLs: 100,
-    minCount: 200,                      //  least amount of hits for the any combination of the url, port, method, agent and referer
+  topAgents: 50,
+  topReferers: 100,
+  topURLs: 100,
+  minCount: 200, //  least amount of hits for the any combination of the url, port, method, agent and referer
 };
 
-var client = new elastic.Client( {
-    host: app_config.elastic.host,
-    apiVestion: app_config.elastic.version,
-    log: [{
-        type: 'stdio',
-        levels: ['error', 'warning']
-    }],
-    // requestTimeout: 300000
-    requestTimeout: Infinity
-} );
+var client = new elastic.Client({
+  host: app_config.elastic.host,
+  apiVestion: app_config.elastic.version,
+  log: [{
+    type: 'stdio',
+    levels: ['error', 'warning']
+  }],
+  // requestTimeout: 300000
+  requestTimeout: Infinity
+});
 
 //  ----------------------------------------------------------------------------------------------//
 
 //  simple check cluster's health status
 //  pars may contain
 //      level: "cluster"(default) | "indices" | "shards"
-var health = exports.health = function( pars ) {
+exports.health = function(pars) {
 
-    return client.cluster.health( pars )
-        .error( function( err ) {
-            console.trace( 'Logs model, health(...), Elasticsearch error:', err );
-        });
-}
+  return client.cluster.health(pars)
+    .error(function(err) {
+      console.trace('Logs model, health(...), Elasticsearch error:', err);
+    });
+};
 
 //  ---------------------------------
 //  returns promise which gets an indices list as a string
 //  pars may contain
 //      index: string | array of strings, default "logstash-*"
 //      v: true, column names
-var indicesList = exports.indicesList = function( pars ) {
+exports.indicesList = function(pars) {
 
-    pars = pars || {};
-    pars.index = pars.index || 'logstash-*';
-    if ( pars.verbose )
-        pars.v = true;
+  pars = pars || {};
+  pars.index = pars.index || 'logstash-*';
+  if (pars.verbose) {
+    pars.v = true;
+  }
 
-    return client.cat.indices( pars )
-        .error( function( err ) {
-            console.trace( 'Logs model, indicesList(...), Elasticsearch error:', err );
-        });
-}
+  return client.cat.indices(pars)
+    .error(function(err) {
+      console.trace('Logs model, indicesList(...), Elasticsearch error:', err);
+    });
+};
 
 //  ---------------------------------
 //  [domain] field aggregation
@@ -88,31 +89,31 @@ var indicesList = exports.indicesList = function( pars ) {
 //      index: string | array of strings, default is logstash-YYYY.MM.DD, where YYYY.MM.DD is today
 //      size: maximum size of result, default: 100
 //      min_doc_count: result will contain domains which have been found in such amount hits or more, default: 1000
-var domainsList = exports.domainsList = function( pars ) {
+exports.domainsList = function(pars) {
 
-    pars = pars || {};
+  pars = pars || {};
 
-    return client.search({
-        index: pars.index || last_index_(),
-        size: 0,
-        body: {
-            aggs: {
-                group_by_domain: {
-                    terms: {
-                        field: 'domain.raw',
-                        size: pars.size || 100,
-                        min_doc_count: pars.min_doc_count || 1000,
-                        exclude: '-'
-                    },
-                },
-            },
-        }
-    }).then( function( resp ) {
-        return resp.aggregations.group_by_domain.buckets;
-    }).error( function( err ) {
-        console.trace( 'Logs model, domainsList(...), Elasticsearch error:', err );
-    });
-}
+  return client.search({
+    index: pars.index || last_index_(),
+    size: 0,
+    body: {
+      aggs: {
+        group_by_domain: {
+          terms: {
+            field: 'domain.raw',
+            size: pars.size || 100,
+            min_doc_count: pars.min_doc_count || 1000,
+            exclude: '-'
+          },
+        },
+      },
+    }
+  }).then(function(resp) {
+    return resp.aggregations.group_by_domain.buckets;
+  }).error(function(err) {
+    console.trace('Logs model, domainsList(...), Elasticsearch error:', err);
+  });
+};
 
 //  top requests collector -----------------------------------------------------------------------//
 
@@ -121,113 +122,126 @@ var curr_pars = {};
 
 //  ---------------------------------
 //  convert retrieved multi-level aggregation into a flat array
-var handle_aggregated_stage_1_ = function( resp ) {
+var handle_aggregated_stage_1_ = function(resp) {
 
-    var current = {};
-    var flat = [];
+  var current = {};
+  var flat = [];
 
-    _.each( resp.aggregations.group_by_method.buckets, function( method ) {
-        current.method = method.key;
-        _.each( method.group_by_port.buckets, function( port ) {
-            current.ipport = port.key;
-            _.each( port.group_by_request.buckets, function( request ) {
+  _.each(resp.aggregations.group_by_method.buckets, function(method) {
+    current.method = method.key;
+    _.each(method.group_by_port.buckets, function(port) {
+      current.ipport = port.key;
+      _.each(port.group_by_request.buckets, function(request) {
 
-                current.request = request.key;
-                current.count = request.doc_count;
-                flat.push( _.clone( current ) );
+        current.request = request.key;
+        current.count = request.doc_count;
+        flat.push(_.clone(current));
 
-            } );
-        } );
-    } );
+      });
+    });
+  });
 
-    return flat;
-}
+  return flat;
+};
 
 //  ---------------------------------
 //  convert retrieved multi-level aggregation into a flat array
-var handle_aggregated_stage_2_ = function( resp ) {
+var handle_aggregated_stage_2_ = function(resp) {
 
-    var flat = [];
+  var flat = [];
 
-    _.each( resp, function( item ) {
+  _.each(resp, function(item) {
 
-        var current = {
-            method: item.method,
-            ipport: item.ipport,
-            request: item.request,
-        };
-        _.each( item.lvl2.aggregations.group_by_agent.buckets, function( agent ) {
-            current.agent = agent.key;
-            _.each( agent.group_by_referer.buckets, function( referer ) {
-                current.referer = referer.key;
-                current.count = referer.doc_count;
-                flat.push( current );
-            } );
-        } );
-
+    var current = {
+      method: item.method,
+      ipport: item.ipport,
+      request: item.request,
+    };
+    _.each(item.lvl2.aggregations.group_by_agent.buckets, function(agent) {
+      current.agent = agent.key;
+      _.each(agent.group_by_referer.buckets, function(referer) {
+        current.referer = referer.key;
+        current.count = referer.doc_count;
+        flat.push(current);
+      });
     });
 
-    return flat;
-}
+  });
+
+  return flat;
+};
 
 //  ---------------------------------
 // { method: 'get',
 //   ipport: '80',
 //   request: '/Images/Topics/TopicTypes/comedy_skit.png',
 //   count: 58552 }
-var run_second_query_ = function( data ) {
+var run_second_query_ = function(data) {
 
-    if ( curr_pars.verbose )
-        console.log( '  second lvl query for: ' + data.method + ':' + data.ipport + data.request );
+  if (curr_pars.verbose) {
+    console.log('  second lvl query for: ' + data.method + ':' + data.ipport + data.request);
+  }
 
-    return client.search({
-        index: curr_pars.index,
-        size: 0,
-        body: {
-            query: {
-                filtered: {
-                    filter: {
-                        bool: {
-                            must: [
-                                { term: { 'domain.raw': curr_pars.domain } },
-                                { term: { method: data.method } },
-                                { term: { ipport: data.ipport } },
-                                { term: { 'request.raw': data.request } },
-                            ]
-                        }
-                    }
+  return client.search({
+    index: curr_pars.index,
+    size: 0,
+    body: {
+      query: {
+        filtered: {
+          filter: {
+            bool: {
+              must: [{
+                term: {
+                  'domain.raw': curr_pars.domain
                 }
-            },
-            aggs: {
-                group_by_agent: {
-                    terms: {
-                        field: 'agent.raw',
-                        size: curr_pars.topAgents,
-                        min_doc_count: curr_pars.minCount2Lvl,
-                        collect_mode: 'breadth_first',
-                    },
-                    aggs: {
-                        group_by_referer: {
-                            terms: {
-                                field: 'referer.raw',
-                                size: curr_pars.topReferers,
-                                min_doc_count: curr_pars.minCount2Lvl,
-                                collect_mode: 'breadth_first',
-                            }
-                        }
-                    }
+              }, {
+                term: {
+                  method: data.method
                 }
+              }, {
+                term: {
+                  ipport: data.ipport
+                }
+              }, {
+                term: {
+                  'request.raw': data.request
+                }
+              }, ]
             }
+          }
         }
-    }).then( function( resp ) {
+      },
+      aggs: {
+        group_by_agent: {
+          terms: {
+            field: 'agent.raw',
+            size: curr_pars.topAgents,
+            min_doc_count: curr_pars.minCount2Lvl,
+            collect_mode: 'breadth_first',
+          },
+          aggs: {
+            group_by_referer: {
+              terms: {
+                field: 'referer.raw',
+                size: curr_pars.topReferers,
+                min_doc_count: curr_pars.minCount2Lvl,
+                collect_mode: 'breadth_first',
+              }
+            }
+          }
+        }
+      }
+    }
+  }).then(function(resp) {
 
-        if ( curr_pars.verbose )
-            console.log( '   COMPLETED 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ++curr_pars.rcount + ')' );
+    if (curr_pars.verbose) {
+      console.log('   COMPLETED 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_pars.rcount ) + ')');
+    }
 
-        data.lvl2 = resp;
-        return data;
-    });
-}
+    data.lvl2 = resp;
+    return data;
+  });
+};
 
 //  ---------------------------------
 //  collect most frequent requests using multi-level aggregation
@@ -253,83 +267,88 @@ var run_second_query_ = function( data ) {
 //      minCount: least amount of hits for every combination, default logs_config.minCount
 //      verbose: additional info about second level requests
 
-var aggregateTopRequests = exports.aggregateTopRequests = function( pars ) {
+exports.aggregateTopRequests = function(pars) {
 
-    pars = pars || {};
-    if ( pars.index === '*' || pars.index === 'logstash*' || pars.index === 'logstash-*' ) {
-        throw ( 'Too wide indices select!' );
-    }
+  pars = pars || {};
+  if (pars.index === '*' || pars.index === 'logstash*' || pars.index === 'logstash-*') {
+    throw ('Too wide indices select!');
+  }
 
-    _.defaults( pars, logs_config );
-    pars.index = pars.index || last_index_();
-    pars.minCount = parseInt( pars.minCount );
-    pars.minCount2Lvl = pars.minCount / 4;
-    curr_pars = pars;
-    curr_pars.rcount = 0;
+  _.defaults(pars, logs_config);
+  pars.index = pars.index || last_index_();
+  pars.minCount = parseInt(pars.minCount);
+  pars.minCount2Lvl = pars.minCount / 4;
+  curr_pars = pars;
+  curr_pars.rcount = 0;
 
-    console.dir( pars , { colors: false, depth: null } );
+  console.dir(pars, {
+    colors: false,
+    depth: null
+  });
 
-    if ( pars.verbose )
-        console.log( 'run 1st lvl aggregation' );
+  if (pars.verbose) {
+    console.log('run 1st lvl aggregation');
+  }
 
-    var result;
-    return client.search({
+  return client.search({
 
-        index: pars.index,
-        size: 0,
-        body: {
-            query: {
-                term: {
-                    'domain.raw': pars.domain
-                },
-            },
-            aggs: {
-                group_by_method: {
-                    terms: {
-                        field: 'method',
-                        size: 10,
-                        min_doc_count: pars.minCount,
-                        // depth_first/breadth_first, https://www.elastic.co/guide/en/elasticsearch/guide/current/_preventing_combinatorial_explosions.html
-                        collect_mode: 'breadth_first',
-                    },
-                    aggs: {
-                        group_by_port: {
-                            terms: {
-                                field: 'ipport',
-                                size: 2,    //  80 | 443
-                                min_doc_count: pars.minCount,
-                                collect_mode: 'breadth_first',
-                            },
-                            aggs: {
-                                group_by_request: {
-                                    terms: {
-                                        field: 'request.raw',
-                                        size: pars.topURLs,
-                                        min_doc_count: pars.minCount,
-                                        collect_mode: 'breadth_first',
-                                    },
-                                }
-                            }
-                        }
-                    }
+    index: pars.index,
+    size: 0,
+    body: {
+      query: {
+        term: {
+          'domain.raw': pars.domain
+        },
+      },
+      aggs: {
+        group_by_method: {
+          terms: {
+            field: 'method',
+            size: 10,
+            min_doc_count: pars.minCount,
+            // depth_first/breadth_first, https://www.elastic.co/guide/en/elasticsearch/guide/current/_preventing_combinatorial_explosions.html
+            collect_mode: 'breadth_first',
+          },
+          aggs: {
+            group_by_port: {
+              terms: {
+                field: 'ipport',
+                size: 2, //  80 | 443
+                min_doc_count: pars.minCount,
+                collect_mode: 'breadth_first',
+              },
+              aggs: {
+                group_by_request: {
+                  terms: {
+                    field: 'request.raw',
+                    size: pars.topURLs,
+                    min_doc_count: pars.minCount,
+                    collect_mode: 'breadth_first',
+                  },
                 }
+              }
             }
+          }
         }
-    }).then( function( resp ) {
+      }
+    }
+  }).then(function(resp) {
 
-        var responses = handle_aggregated_stage_1_( resp );
-        console.log( '1st lvl done, ' + responses.length + ' records' );
+    var responses = handle_aggregated_stage_1_(resp);
+    console.log('1st lvl done, ' + responses.length + ' records');
 
-        return Promise.map( responses, run_second_query_, { concurrency: 4 } )
-
-    }).then( function( resp ) {
-
-        var responses = handle_aggregated_stage_2_( resp );
-        console.log( '2nd lvl done, ' + responses.length + ' records' );
-
-        return responses;
-
-    }).error( function( err ) {
-        console.trace( 'Logs model, aggregateTopRequests(...), Elasticsearch error:', err );
+    return Promise.map(responses, run_second_query_, {
+      concurrency: 4
     });
-}
+
+  }).then(function(resp) {
+
+    var responses = handle_aggregated_stage_2_(resp);
+    console.log('2nd lvl done, ' + responses.length + ' records');
+
+    return responses;
+
+  }).error(function(err) {
+    console.trace('Logs model, aggregateTopRequests(...), Elasticsearch error:', err);
+  });
+};
