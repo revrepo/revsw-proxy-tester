@@ -21,7 +21,6 @@
 'use strict';
 
 var logs = require('./models/logs.js'),
-  // _ = require('underscore'),
   Promise = require('bluebird'),
   fs = Promise.promisifyAll(require('fs')),
   app_config = require('config'),
@@ -55,7 +54,8 @@ var showHelp = function() {
   console.log('\n  CAUTION:');
   console.log('        Collection mode puts a heavy load on ES cluster, run it against one index,');
   console.log('        avoid using broad index filters like logstash-* !');
-  console.log('\n  "NODE_ENV=production" should be inserted before "node collect ..." to run it against the production cluster\n');
+  console.log('\n        "NODE_ENV=production" should be inserted before "node collect ..."');
+  console.log('        to run it against the production cluster\n');
 };
 
 var conf = {},

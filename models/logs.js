@@ -20,10 +20,10 @@
 'use strict';
 /*jshint -W079 */
 
-var app_config = require('config'),
-  _ = require('underscore'),
+var _ = require('underscore'),
   elastic = require('elasticsearch'),
   Promise = require('bluebird'),
+  app_config = require('config'),
   logger = require('revsw-logger')(app_config.get('log_config'));
 
 //  ---------------------------------

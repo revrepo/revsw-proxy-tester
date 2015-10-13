@@ -40,6 +40,8 @@ var showHelp = function() {
   console.log('        test BP server (lga02-bp02.revsw.net is default)');
   console.log('    --passed-ratio :');
   console.log('        passed/fired ratio to treat result as successful, percents, default is 95\n');
+  console.log('        "NODE_ENV=production" should be inserted before "node collect ..."');
+  console.log('        to run it against the production cluster\n');
 };
 
 var conf = {},

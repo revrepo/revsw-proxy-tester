@@ -11,7 +11,7 @@
         "colorize": true,
         "prettyPrint": true,
         "humanReadableUnhandledException": true,
-        "showLevel": false
+        "showLevel": true
       },
       "File": {
         "filename": "./log/revsw-proxy-tester.log",

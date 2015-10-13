@@ -23,6 +23,7 @@
 var _ = require('underscore'),
   Promise = require('bluebird'),
   req = Promise.promisify(require('request')),
+  app_config = require('config'),
   logger = require('revsw-logger')(app_config.get('log_config'));
 
 //  ---------------------------------
