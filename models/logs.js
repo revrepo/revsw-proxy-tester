@@ -262,9 +262,12 @@ var aggregateTopRequests = exports.aggregateTopRequests = function( pars ) {
 
     _.defaults( pars, logs_config );
     pars.index = pars.index || last_index_();
+    pars.minCount = parseInt( pars.minCount );
     pars.minCount2Lvl = pars.minCount / 4;
     curr_pars = pars;
     curr_pars.rcount = 0;
+
+    console.dir( pars , { colors: false, depth: null } );
 
     if ( pars.verbose )
         console.log( 'run 1st lvl aggregation' );
