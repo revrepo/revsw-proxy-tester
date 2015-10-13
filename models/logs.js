@@ -180,7 +180,7 @@ var handle_aggregated_stage_2_ = function(resp) {
 //   count: 58552 }
 var run_second_query_ = function(data) {
 
-  logger.verbose('  second lvl query for: ' + data.method + ':' + data.ipport + data.request );
+  logger.verbose('second lvl query for: ' + data.method + ':' + data.ipport + data.request );
   var took = Date.now();
 
   return client.search({
@@ -236,7 +236,7 @@ var run_second_query_ = function(data) {
   }).then(function(resp) {
 
     took = ( ( Date.now() - took ) / 1000 ).toFixed( 2 );
-    logger.verbose('   COMPLETED 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_pars.rcount ) + ',' + took + 's)');
+    logger.verbose('  completed 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_pars.rcount ) + ',' + took + 's)');
     data.lvl2 = resp;
     return data;
   });

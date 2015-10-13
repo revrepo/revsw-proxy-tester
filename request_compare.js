@@ -18,12 +18,11 @@
 
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
-/*jshint -W079 */
 
 //  ---------------------------------
 var reqs = require('./models/requests.js'),
-  Promise = require('bluebird'),
-  fs = Promise.promisifyAll(require('fs')),
+  promise = require('bluebird'),
+  fs = promise.promisifyAll(require('fs')),
   app_config = require('config'),
   logger = require('revsw-logger')(app_config.get('log_config'));
 
@@ -39,9 +38,9 @@ var showHelp = function() {
   console.log('    --test-proxy :');
   console.log('        test BP server (lga02-bp02.revsw.net is default)');
   console.log('    --passed-ratio :');
-  console.log('        passed/fired ratio to treat result as successful, percents, default is 95\n');
-  console.log('        "NODE_ENV=production" should be inserted before "node collect ..."');
-  console.log('        to run it against the production cluster\n');
+  console.log('        passed/fired ratio to treat result as successful, percents, default is 95');
+  console.log('    -v, --verbose :');
+  console.log('        blabbing output, shown requests firings\n');
 };
 
 var conf = {},
@@ -103,13 +102,17 @@ fs.readFileAsync(conf.file)
     return reqs.fire(requests, conf);
   })
   .then(function(responses) {
+
     var len = responses.length / 2;
     var diffs = reqs.compare(responses);
+
     ratio = 100 * (len - diffs.length) / len;
     took = ( ( Date.now() - took ) / 1000 ).toFixed(2);
+
     logger.info(len + ' responses received, in ' + took + 's');
     logger.info(diffs.length + ' failure comparisons');
     logger.info(ratio.toFixed(2) + ' passed ratio');
+
     if (diffs.length) {
       logger.warn('diffs are being saved to ' + conf.file + '.diff.json');
       return fs.writeFileAsync(conf.file + '.diff.json', JSON.stringify(diffs, null, 2));

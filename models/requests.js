@@ -18,11 +18,10 @@
 
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
-/*jshint -W079 */
 
 var _ = require('underscore'),
-  Promise = require('bluebird'),
-  req = Promise.promisify(require('request')),
+  promise = require('bluebird'),
+  req = promise.promisify(require('request')),
   app_config = require('config'),
   logger = require('revsw-logger')(app_config.get('log_config'));
 
@@ -90,29 +89,43 @@ var compare_ = function(prod, test) {
 
 //  ----------------------------------------------------------------------------------------------//
 
-var cached_req_array;
+var cached_req_array,
+  cached_pars;
+
+//  ---------------------------------
+var fire_one_ = function( opts ) {
+  logger.verbose( 'fired ' + opts.method + ':' + opts.url );
+  return req( opts )
+    .then( function( response ) {
+      logger.verbose( '  completed ' + opts.method + ':' + opts.url );
+      return response;
+    });
+};
 
 //  ---------------------------------
 //  fire requests simultaneously via production and test proxies
 exports.fire = function(req_array, pars) {
 
-  cached_req_array = req_array;
   pars = pars || {};
   pars.proxy_prod = pars.proxy_prod || app_config.get('proxies').production;
   pars.proxy_test = pars.proxy_test || app_config.get('proxies').testing;
+  cached_pars = pars;
+  if (pars.verbose) {
+    logger.transports.console.level = 'verbose';
+  }
 
-  var fired = [];
+  cached_req_array = [];
   for (var i = 0, len = req_array.length; i < len; ++i) {
     var opts = buildReq(req_array[i]);
 
     //  even requests go through production proxy, odd - via testing
     opts.proxy = pars.proxy_prod;
-    fired.push(req(opts));
+    cached_req_array.push( opts );
     opts.proxy = pars.proxy_test;
-    fired.push(req(opts));
+    cached_req_array.push( opts );
   }
 
-  return Promise.all(fired)
+  return promise.map( cached_req_array, fire_one_, { concurrency: 64 })
     .error(function(err) {
       logger.error('requests model, fire(...), error:', err);
     });
