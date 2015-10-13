@@ -19,12 +19,8 @@
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
 
-global.app_require = function(name) {
-  return require(__dirname + '/' + name);
-};
-
-var logs = app_require('models/logs.js'),
-  _ = require('underscore'),
+var logs = require('./models/logs.js'),
+  // _ = require('underscore'),
   Promise = require('bluebird'),
   fs = Promise.promisifyAll(require('fs'));
 
@@ -133,7 +129,7 @@ if (action === 'health') {
   logs.health(conf)
     .then(function(res) {
       console.log('Cluster health status:');
-      console.log(res);
+      console.dir( res, { colors: true, depth: null } );
     });
 
   return;

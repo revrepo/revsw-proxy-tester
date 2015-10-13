@@ -1,0 +1,6 @@
+{
+    "elastic": {
+        "host": "IAD02-ES01.revsw.net:9200",
+        "version": "1.5"
+    }
+}

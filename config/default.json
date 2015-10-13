@@ -1,0 +1,7 @@
+{
+    "port": 1337,
+    "elastic": {
+        "host": "TESTSJC20-ES01.revsw.net:9200",
+        "version": "1.5"
+    }
+}

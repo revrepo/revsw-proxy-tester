@@ -19,7 +19,7 @@
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
 
-var app_config = app_require('config/app.js'),
+var app_config = require('config'),
   _ = require('underscore'),
   elastic = require('elasticsearch'),
   Promise = require('bluebird');
@@ -40,8 +40,8 @@ var logs_config = {
 };
 
 var client = new elastic.Client({
-  host: app_config.elastic.host,
-  apiVestion: app_config.elastic.version,
+  host: app_config.get('elastic').host,
+  apiVestion: app_config.get('elastic').version,
   log: [{
     type: 'stdio',
     levels: ['error', 'warning']
@@ -258,7 +258,7 @@ var run_second_query_ = function(data) {
 //     referer: "http://www.metacafe.com/watch/yt-5gr4M7T9xeQ/",
 //     request: "/"
 //  }
-//  pars:
+//  pars: {
 //      domain: domain name, [required]
 //      index: string, default is logstash-YYYY.MM.DD, where YYYY.MM.DD is today, see CAUTION above
 //      topAgents: number of top agent variants, default logs_config.topAgents
@@ -266,6 +266,7 @@ var run_second_query_ = function(data) {
 //      topURLs: number of top request variants, default logs_config.topURLs
 //      minCount: least amount of hits for every combination, default logs_config.minCount
 //      verbose: additional info about second level requests
+//  }
 
 exports.aggregateTopRequests = function(pars) {
 
@@ -281,13 +282,12 @@ exports.aggregateTopRequests = function(pars) {
   curr_pars = pars;
   curr_pars.rcount = 0;
 
-  console.dir(pars, {
-    colors: false,
-    depth: null
-  });
-
   if (pars.verbose) {
-    console.log('run 1st lvl aggregation');
+    console.log('run 1st lvl aggregation, conf:');
+    console.dir(pars, {
+      colors: false,
+      depth: null
+    });
   }
 
   return client.search({

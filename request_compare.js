@@ -19,13 +19,9 @@
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
 
-global.app_require = function(name) {
-  return require(__dirname + '/' + name);
-};
-
 //  ---------------------------------
-var reqs = app_require('models/requests.js'),
-  _ = require('underscore'),
+var reqs = require('./models/requests.js'),
+  // _ = require('underscore'),
   Promise = require('bluebird'),
   fs = Promise.promisifyAll(require('fs'));
 
