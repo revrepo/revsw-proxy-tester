@@ -4,6 +4,10 @@
     "host": "TESTSJC20-ES01.revsw.net:9200",
     "version": "1.5"
   },
+  "proxies": {
+    "production": "http://lga02-bp01.revsw.net",
+    "testing": "http://lga02-bp02.revsw.net"
+    },
   "log_config": {
     "transports": {
       "Console": {

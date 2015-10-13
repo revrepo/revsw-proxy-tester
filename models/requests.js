@@ -26,14 +26,6 @@ var _ = require('underscore'),
   app_config = require('config'),
   logger = require('revsw-logger')(app_config.get('log_config'));
 
-//  ---------------------------------
-//  defaults
-var req_config = {
-  proxy_prod: 'http://lga02-bp01.revsw.net',
-  proxy_test: 'http://lga02-bp02.revsw.net',
-  allowed_ttl_diff: 10000,
-};
-
 
 //  ---------------------------------
 //  build new request options
@@ -88,22 +80,11 @@ var buildReq = function(data) {
 // }
 var compare_ = function(prod, test) {
 
-  if (_.detect(['content-type', 'content-length', 'etag', 'last-modified', 'x-rev-cache'], function(item) {
+  return ( _.detect(['content-type', 'content-length', 'etag', 'last-modified', 'x-rev-cache'], function(item) {
       test[item] = test[item] || '';
       prod[item] = prod[item] || '';
       return prod[item] !== test[item];
-    }) !== undefined) {
-    return false;
-  }
-
-  //  this stuff cannot be absolutelly equal, it diffs by a time between two requests
-  test['x-rev-obj-ttl'] = parseFloat(test['x-rev-obj-ttl'] || 0);
-  prod['x-rev-obj-ttl'] = parseFloat(prod['x-rev-obj-ttl'] || 0);
-  if (Math.abs(prod['x-rev-obj-ttl'] - test['x-rev-obj-ttl']) > req_config.allowed_ttl_diff) {
-    return false;
-  }
-
-  return true;
+    }) ) || '';
 };
 
 
@@ -117,14 +98,17 @@ exports.fire = function(req_array, pars) {
 
   cached_req_array = req_array;
   pars = pars || {};
+  pars.proxy_prod = pars.proxy_prod || app_config.get('proxies').production;
+  pars.proxy_test = pars.proxy_test || app_config.get('proxies').testing;
+
   var fired = [];
   for (var i = 0, len = req_array.length; i < len; ++i) {
     var opts = buildReq(req_array[i]);
 
     //  even requests go through production proxy, odd - via testing
-    opts.proxy = pars.proxy_prod || req_config.proxy_prod;
+    opts.proxy = pars.proxy_prod;
     fired.push(req(opts));
-    opts.proxy = pars.proxy_test || req_config.proxy_test;
+    opts.proxy = pars.proxy_test;
     fired.push(req(opts));
   }
 
@@ -143,9 +127,11 @@ exports.compare = function(response) {
     var headers_prod = response[i][0].headers, //  response[i][1] <-- response's body
       headers_test = response[i + 1][0].headers;
 
-    if (!compare_(headers_prod, headers_test)) {
+    var cmp = compare_(headers_prod, headers_test);
+    if ( cmp !== '' ) {
       diffs.push({
         req: cached_req_array[i / 2],
+        error: cmp,
         headers_prod: headers_prod,
         headers_test: headers_test,
       });
