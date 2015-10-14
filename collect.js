@@ -17,12 +17,11 @@
  */
 
 //  ----------------------------------------------------------------------------------------------//
-/*jshint -W079 */
 'use strict';
 
 var logs = require('./models/logs.js'),
-  Promise = require('bluebird'),
-  fs = Promise.promisifyAll(require('fs')),
+  promise = require('bluebird'),
+  fs = promise.promisifyAll(require('fs')),
   app_config = require('config'),
   logger = require('revsw-logger')(app_config.get('log_config'));
 
@@ -36,7 +35,7 @@ var showHelp = function() {
   console.log('    -C :');
   console.log('        Collection mode (default)');
   console.log('    -d, --domain :');
-  console.log('        domain name for the collection mode (required)');
+  console.log('        domain name or names(space delimited) for the collection mode (required)');
   console.log('    -i, --index :');
   console.log('        index name (optional)');
   console.log('    --min-count :');
@@ -54,11 +53,13 @@ var showHelp = function() {
   console.log('\n  CAUTION:');
   console.log('        Collection mode puts a heavy load on ES cluster, run it against one index,');
   console.log('        avoid using broad index filters like logstash-* !');
-  console.log('\n        "NODE_ENV=production" should be inserted before "node collect ..."');
-  console.log('        to run it against the production cluster\n');
+  console.log('\n  "NODE_ENV=production" should be inserted before "node collect ..."');
+  console.log('  to run it against the production cluster\n');
 };
 
-var conf = {},
+var conf = {
+    domain: []
+  },
   pars = process.argv.slice(2),
   parslen = pars.length,
   curr_par = false,
@@ -76,10 +77,11 @@ for (var i = 0; i < parslen; ++i) {
     return;
   }
 
-  if (curr_par) {
-    conf[curr_par] = pars[i];
+  if ( curr_par && pars[i].substr( 0, 1 ) === '-' ) {
     curr_par = false;
-  } else if (pars[i] === '-d' || pars[i] === '--domain') {
+  }
+
+  if (pars[i] === '-d' || pars[i] === '--domain') {
     curr_par = 'domain';
   } else if (pars[i] === '-i' || pars[i] === '--index') {
     curr_par = 'index';
@@ -95,9 +97,16 @@ for (var i = 0; i < parslen; ++i) {
     action = 'collect';
   } else if (pars[i] === '-I' || pars[i] === '--indices-list') {
     action = 'indices';
+    curr_par = 'index';
   } else if (pars[i] === '-H' || pars[i] === '--health') {
     action = 'health';
     curr_par = 'level';
+  } else if (curr_par) {
+    if ( curr_par === 'domain' ) {
+      conf.domain.push( pars[i] );
+    } else {
+      conf[curr_par] = pars[i];
+    }
   } else {
     logger.error('\n    unknown parameter: ' + pars[i]);
     showHelp();
@@ -109,21 +118,28 @@ for (var i = 0; i < parslen; ++i) {
 
 if (action === 'collect') {
 
-  if (!conf.domain) {
-    logger.error('\n    domain name required.');
+  if ( conf.domain.length === 0 ) {
+    logger.error('\n    domain name(s) required.');
     showHelp();
     return;
   }
 
   if (!conf.file) {
-    conf.file = conf.domain;
+    conf.file = conf.domain[0];
+    if ( conf.domain.length > 1 ) {
+      conf.file += '.' + conf.domain.length;
+    }
   }
 
-  logs.aggregateTopRequests(conf)
-    .then(function(res) {
-      fs.writeFileAsync(conf.file + '.json', JSON.stringify(res, null, 2), 'utf8');
-      logger.info('file ' + conf.file + '.json, saved.' );
-    });
+  try {
+    logs.aggregateTopRequests(conf)
+      .then(function(res) {
+        logger.info('file ' + conf.file + '.json, ' + res.length + ' total records saved.' );
+        fs.writeFileAsync(conf.file + '.json', JSON.stringify(res, null, 2), 'utf8');
+      });
+  } catch ( e ) {
+    logger.error( 'Collect mode error: ', e );
+  }
 
   return;
 }

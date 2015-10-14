@@ -18,18 +18,17 @@
 
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
-/*jshint -W079 */
 
-var _ = require('underscore'),
-  elastic = require('elasticsearch'),
-  Promise = require('bluebird'),
-  app_config = require('config'),
-  logger = require('revsw-logger')(app_config.get('log_config'));
+var _ = require( 'underscore' ),
+  elastic = require( 'elasticsearch' ),
+  promise = require( 'bluebird' ),
+  app_config = require( 'config' ),
+  logger = require( 'revsw-logger' )( app_config.get( 'log_config' ) );
 
 //  ---------------------------------
 //  create logstash index name for the current date(today): "logstash-2015.10.01"
 var last_index_ = function() {
-  return 'logstash-' + (new Date()).toISOString().substr(0, 10).replace(/\-/g, '.');
+  return 'logstash-' + ( new Date() ).toISOString().substr( 0, 10 ).replace( /\-/g, '.' );
 };
 
 //  ---------------------------------
@@ -41,28 +40,28 @@ var logs_config = {
   minCount: 200, //  least amount of hits for the any combination of the url, port, method, agent and referer
 };
 
-var client = new elastic.Client({
-  host: app_config.get('elastic').host,
-  apiVestion: app_config.get('elastic').version,
-  log: [{
+var client = new elastic.Client( {
+  host: app_config.get( 'elastic' ).host,
+  apiVestion: app_config.get( 'elastic' ).version,
+  log: [ {
     type: 'stdio',
-    levels: ['error', 'warning']
-  }],
+    levels: [ 'error', 'warning' ]
+  } ],
   // requestTimeout: 300000
   requestTimeout: Infinity
-});
+} );
 
 //  ----------------------------------------------------------------------------------------------//
 
 //  simple check cluster's health status
 //  pars may contain
 //      level: "cluster"(default) | "indices" | "shards"
-exports.health = function(pars) {
+exports.health = function( pars ) {
 
-  return client.cluster.health(pars)
-    .error(function(err) {
-      logger.error('Logs model, health(...), Elasticsearch error:', err);
-    });
+  return client.cluster.health( pars )
+    .error( function( err ) {
+      logger.error( 'Logs model, health(...), Elasticsearch error:', err );
+    } );
 };
 
 //  ---------------------------------
@@ -70,18 +69,18 @@ exports.health = function(pars) {
 //  pars may contain
 //      index: string | array of strings, default "logstash-*"
 //      v: true, column names
-exports.indicesList = function(pars) {
+exports.indicesList = function( pars ) {
 
   pars = pars || {};
   pars.index = pars.index || 'logstash-*';
-  if (pars.verbose) {
+  if ( pars.verbose ) {
     pars.v = true;
   }
 
-  return client.cat.indices(pars)
-    .error(function(err) {
-      logger.error('Logs model, indicesList(...), Elasticsearch error:', err);
-    });
+  return client.cat.indices( pars )
+    .error( function( err ) {
+      logger.error( 'Logs model, indicesList(...), Elasticsearch error:', err );
+    } );
 };
 
 //  ---------------------------------
@@ -91,11 +90,11 @@ exports.indicesList = function(pars) {
 //      index: string | array of strings, default is logstash-YYYY.MM.DD, where YYYY.MM.DD is today
 //      size: maximum size of result, default: 100
 //      min_doc_count: result will contain domains which have been found in such amount hits or more, default: 1000
-exports.domainsList = function(pars) {
+exports.domainsList = function( pars ) {
 
   pars = pars || {};
 
-  return client.search({
+  return client.search( {
     index: pars.index || last_index_(),
     size: 0,
     body: {
@@ -110,65 +109,65 @@ exports.domainsList = function(pars) {
         },
       },
     }
-  }).then(function(resp) {
+  } ).then( function( resp ) {
     return resp.aggregations.group_by_domain.buckets;
-  }).error(function(err) {
-    logger.error('Logs model, domainsList(...), Elasticsearch error:', err);
-  });
+  } ).error( function( err ) {
+    logger.error( 'Logs model, domainsList(...), Elasticsearch error:', err );
+  } );
 };
 
 //  top requests collector -----------------------------------------------------------------------//
 
 //  cached parameters
-var curr_pars = {};
+var curr_opts = {};
 
 //  ---------------------------------
 //  convert retrieved multi-level aggregation into a flat array
-var handle_aggregated_stage_1_ = function(resp) {
+var handle_aggregated_stage_1_ = function( resp, domain ) {
 
-  var current = {};
+  var current = { domain: domain };
   var flat = [];
 
-  _.each(resp.aggregations.group_by_method.buckets, function(method) {
+  _.each( resp.aggregations.group_by_method.buckets, function( method ) {
     current.method = method.key;
-    _.each(method.group_by_port.buckets, function(port) {
+    _.each( method.group_by_port.buckets, function( port ) {
       current.ipport = port.key;
-      _.each(port.group_by_request.buckets, function(request) {
+      _.each( port.group_by_request.buckets, function( request ) {
 
         current.request = request.key;
         current.count = request.doc_count;
-        flat.push(_.clone(current));
+        flat.push( _.clone( current ) );
 
-      });
-    });
-  });
+      } );
+    } );
+  } );
 
   return flat;
 };
 
 //  ---------------------------------
 //  convert retrieved multi-level aggregation into a flat array
-var handle_aggregated_stage_2_ = function(resp) {
+var handle_aggregated_stage_2_ = function( resp ) {
 
   var flat = [];
 
-  _.each(resp, function(item) {
+  _.each( resp, function( item ) {
 
     var current = {
       method: item.method,
       ipport: item.ipport,
       request: item.request,
     };
-    _.each(item.lvl2.aggregations.group_by_agent.buckets, function(agent) {
+    _.each( item.lvl2.aggregations.group_by_agent.buckets, function( agent ) {
       current.agent = agent.key;
-      _.each(agent.group_by_referer.buckets, function(referer) {
+      _.each( agent.group_by_referer.buckets, function( referer ) {
         current.referer = referer.key;
         current.count = referer.doc_count;
-        flat.push(current);
-      });
-    });
+        flat.push( current );
+      } );
+    } );
 
-  });
+  } );
 
   return flat;
 };
@@ -178,22 +177,22 @@ var handle_aggregated_stage_2_ = function(resp) {
 //   ipport: '80',
 //   request: '/Images/Topics/TopicTypes/comedy_skit.png',
 //   count: 58552 }
-var run_second_query_ = function(data) {
+var run_second_query_ = function( data ) {
 
-  logger.verbose('second lvl query for: ' + data.method + ':' + data.ipport + data.request );
+  logger.verbose( 'second lvl query for: ' + data.method + ':' + data.ipport + data.request );
   var took = Date.now();
 
-  return client.search({
-    index: curr_pars.index,
+  return client.search( {
+    index: curr_opts.index,
     size: 0,
     body: {
       query: {
         filtered: {
           filter: {
             bool: {
-              must: [{
+              must: [ {
                 term: {
-                  'domain.raw': curr_pars.domain
+                  'domain.raw': curr_opts.domain
                 }
               }, {
                 term: {
@@ -216,16 +215,16 @@ var run_second_query_ = function(data) {
         group_by_agent: {
           terms: {
             field: 'agent.raw',
-            size: curr_pars.topAgents,
-            min_doc_count: curr_pars.minCount2Lvl,
+            size: curr_opts.topAgents,
+            min_doc_count: curr_opts.minCount2Lvl,
             collect_mode: 'breadth_first',
           },
           aggs: {
             group_by_referer: {
               terms: {
                 field: 'referer.raw',
-                size: curr_pars.topReferers,
-                min_doc_count: curr_pars.minCount2Lvl,
+                size: curr_opts.topReferers,
+                min_doc_count: curr_opts.minCount2Lvl,
                 collect_mode: 'breadth_first',
               }
             }
@@ -233,14 +232,94 @@ var run_second_query_ = function(data) {
         }
       }
     }
-  }).then(function(resp) {
+  } ).then( function( resp ) {
 
     took = ( ( Date.now() - took ) / 1000 ).toFixed( 2 );
-    logger.verbose('  completed 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_pars.rcount ) + ',' + took + 's)');
+    logger.verbose( '  completed 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_opts.rcount ) + '/' + took + 's)' );
     data.lvl2 = resp;
     return data;
-  });
+  } );
 };
+
+//  ---------------------------------
+var aggregateTopRequests_1_domain_ = function( opts ) {
+
+  curr_opts = opts;
+  curr_opts.rcount = 0;
+
+  if ( opts.verbose ) {
+    logger.transports.console.level = 'verbose';
+  }
+  logger.verbose( 'config: ', opts );
+  logger.info( '1st lvl aggregation started' );
+  var took = Date.now();
+
+  return client.search( {
+
+    index: opts.index,
+    size: 0,
+    body: {
+      query: {
+        term: {
+          'domain.raw': opts.domain
+        },
+      },
+      aggs: {
+        group_by_method: {
+          terms: {
+            field: 'method',
+            size: 10,
+            min_doc_count: opts.minCount,
+            // depth_first/breadth_first, https://www.elastic.co/guide/en/elasticsearch/guide/current/_preventing_combinatorial_explosions.html
+            collect_mode: 'breadth_first',
+          },
+          aggs: {
+            group_by_port: {
+              terms: {
+                field: 'ipport',
+                size: 2, //  80 | 443
+                min_doc_count: opts.minCount,
+                collect_mode: 'breadth_first',
+              },
+              aggs: {
+                group_by_request: {
+                  terms: {
+                    field: 'request.raw',
+                    size: opts.topURLs,
+                    min_doc_count: opts.minCount,
+                    collect_mode: 'breadth_first',
+                  },
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } ).then( function( resp ) {
+
+    var responses = handle_aggregated_stage_1_( resp, opts.domain );
+    took = ( ( Date.now() - took ) / 1000 ).toFixed( 2 );
+    logger.info( '1st lvl done, ' + responses.length + ' records, in ' + took + 's' );
+    took = Date.now();
+
+    return promise.map( responses, run_second_query_, {
+      concurrency: 4
+    } );
+
+  } ).then( function( resp ) {
+
+    var responses = handle_aggregated_stage_2_( resp );
+    took = ( ( Date.now() - took ) / 1000 ).toFixed( 2 );
+    logger.info( '2nd lvl done, ' + responses.length + ' records, in ' + took + 's' );
+
+    return responses;
+
+  } ).error( function( err ) {
+    logger.error( 'Logs model, aggregateTopRequests(...), Elasticsearch error:', err );
+  } );
+};
+
 
 //  ---------------------------------
 //  collect most frequent requests using multi-level aggregation
@@ -257,8 +336,8 @@ var run_second_query_ = function(data) {
 //     referer: "http://www.metacafe.com/watch/yt-5gr4M7T9xeQ/",
 //     request: "/"
 //  }
-//  pars: {
-//      domain: domain name, [required]
+//  options: {
+//      domain: array with 1+ domain [required]
 //      index: string, default is logstash-YYYY.MM.DD, where YYYY.MM.DD is today, see CAUTION above
 //      topAgents: number of top agent variants, default logs_config.topAgents
 //      topReferers: number of top referer variants, default logs_config.topReferers
@@ -267,89 +346,38 @@ var run_second_query_ = function(data) {
 //      verbose: additional info about second level requests
 //  }
 
-exports.aggregateTopRequests = function(pars) {
+exports.aggregateTopRequests = function( options ) {
 
-  pars = pars || {};
-  if (pars.index === '*' || pars.index === 'logstash*' || pars.index === 'logstash-*') {
-    throw (new RangeError('Too wide indices select!'));
+  options = options || {};
+  if ( options.index === '*' || options.index === 'logstash*' || options.index === 'logstash-*' ) {
+    throw ( new RangeError( 'Logs model, aggregateTopRequests(...), too wide indices select!' ) );
   }
 
-  _.defaults(pars, logs_config);
-  pars.index = pars.index || last_index_();
-  pars.minCount = parseInt(pars.minCount);
-  pars.minCount2Lvl = Math.ceil( pars.minCount / 4 );
-  curr_pars = pars;
-  curr_pars.rcount = 0;
+  if ( !options.domain || options.domain.length === 0 ) {
+    throw ( new Error( 'Logs model, aggregateTopRequests(...), missing [domain] parameter' ) );
+  }
 
-  if (pars.verbose) {
+  if ( options.verbose ) {
     logger.transports.console.level = 'verbose';
   }
-  logger.verbose('config: ', pars);
-  logger.info('1st lvl aggregation started');
-  var took = Date.now();
 
-  return client.search({
+  _.defaults( options, logs_config );
+  options.index = options.index || last_index_();
+  options.minCount = parseInt( options.minCount );
+  options.minCount2Lvl = Math.ceil( options.minCount / 4 );
 
-    index: pars.index,
-    size: 0,
-    body: {
-      query: {
-        term: {
-          'domain.raw': pars.domain
-        },
-      },
-      aggs: {
-        group_by_method: {
-          terms: {
-            field: 'method',
-            size: 10,
-            min_doc_count: pars.minCount,
-            // depth_first/breadth_first, https://www.elastic.co/guide/en/elasticsearch/guide/current/_preventing_combinatorial_explosions.html
-            collect_mode: 'breadth_first',
-          },
-          aggs: {
-            group_by_port: {
-              terms: {
-                field: 'ipport',
-                size: 2, //  80 | 443
-                min_doc_count: pars.minCount,
-                collect_mode: 'breadth_first',
-              },
-              aggs: {
-                group_by_request: {
-                  terms: {
-                    field: 'request.raw',
-                    size: pars.topURLs,
-                    min_doc_count: pars.minCount,
-                    collect_mode: 'breadth_first',
-                  },
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }).then(function(resp) {
+  var opts = [];
+  for ( var i = 0, len = options.domain.length; i < len; ++i ) {
+      var opt = _.clone( options );
+      opt.domain = options.domain[i];
+      opts.push( opt );
+  }
 
-    var responses = handle_aggregated_stage_1_(resp);
-    took = ( ( Date.now() - took ) / 1000 ).toFixed(2);
-    logger.info('1st lvl done, ' + responses.length + ' records, in ' + took + 's');
-    took = Date.now();
-
-    return Promise.map(responses, run_second_query_, {
-      concurrency: 4
+  return promise.map( opts, aggregateTopRequests_1_domain_, { concurrency: 1 } )
+    .then( function( responses ) {
+      //  [[a,b,c], [d,e], [f,g], [h,i,j]] --> [a,b,c,d,e,f,g,h,i,j]
+      return Array.prototype.concat.apply( [], responses );
     });
 
-  }).then(function(resp) {
-
-    var responses = handle_aggregated_stage_2_(resp);
-    took = ( ( Date.now() - took ) / 1000 ).toFixed(2);
-    logger.info('2nd lvl done, ' + responses.length + ' records, in ' + took + 's');
-
-    return responses;
-
-  }).error(function(err) {
-    logger.error('Logs model, aggregateTopRequests(...), Elasticsearch error:', err);
-  });
 };
+
