@@ -89,7 +89,7 @@ exports.indicesList = function( pars ) {
 //  pars may contain
 //      index: string | array of strings, default is logstash-YYYY.MM.DD, where YYYY.MM.DD is today
 //      size: maximum size of result, default: 100
-//      min_doc_count: result will contain domains which have been found in such amount hits or more, default: 1000
+//      minCount: result will contain domains which have been found in such amount hits or more, default: 1000
 exports.domainsList = function( pars ) {
 
   pars = pars || {};
@@ -103,7 +103,7 @@ exports.domainsList = function( pars ) {
           terms: {
             field: 'domain.raw',
             size: pars.size || 100,
-            min_doc_count: pars.min_doc_count || 1000,
+            min_doc_count: pars.minCount || 1000,
             exclude: '-'
           },
         },
@@ -115,6 +115,7 @@ exports.domainsList = function( pars ) {
     logger.error( 'Logs model, domainsList(...), Elasticsearch error:', err );
   } );
 };
+
 
 //  top requests collector -----------------------------------------------------------------------//
 
@@ -154,12 +155,21 @@ var handle_aggregated_stage_2_ = function( resp ) {
   _.each( resp, function( item ) {
 
     var current = {
+      domain: item.domain,
       method: item.method,
       ipport: item.ipport,
       request: item.request,
     };
     _.each( item.lvl2.aggregations.group_by_agent.buckets, function( agent ) {
       current.agent = agent.key;
+
+      if ( agent.missing_referer.doc_count > curr_opts.minCount2Lvl ) {
+        //  some records have no referer at all or have it null'ed, tey're grouped by the "missing_referer" agg
+        current.referer = '';
+        current.count = agent.missing_referer.doc_count;
+        flat.push( current );
+      }
+
       _.each( agent.group_by_referer.buckets, function( referer ) {
         current.referer = referer.key;
         current.count = referer.doc_count;
@@ -227,6 +237,9 @@ var run_second_query_ = function( data ) {
                 min_doc_count: curr_opts.minCount2Lvl,
                 collect_mode: 'breadth_first',
               }
+            },
+            missing_referer: {
+              missing: { field: 'referer' }
             }
           }
         }
