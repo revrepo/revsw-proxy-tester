@@ -367,8 +367,10 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
 exports.aggregateTopRequests = function( options ) {
 
   options = options || {};
-  if ( options.index === '*' || options.index === 'logstash*' || options.index === 'logstash-*' ) {
-    throw ( new RangeError( 'Logs model, aggregateTopRequests(...), too wide indices select!' ) );
+  if ( process.env.NODE_ENV === 'production' &&
+      ( options.index.indexOf( '*' ) !== -1 ||
+        options.index.indexOf( '?' ) !== -1 ) ) {
+    throw ( new RangeError( 'Logs model, aggregateTopRequests(...), indices with wild symbols are not allowed!' ) );
   }
 
   if ( !options.domain || options.domain.length === 0 ) {
