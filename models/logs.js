@@ -54,11 +54,12 @@ var client = new elastic.Client( {
 //  ----------------------------------------------------------------------------------------------//
 
 //  simple check cluster's health status
-//  pars may contain
+//  opts {
 //      level: "cluster"(default) | "indices" | "shards"
-exports.health = function( pars ) {
+//  }
+exports.health = function( opts ) {
 
-  return client.cluster.health( pars )
+  return client.cluster.health( opts )
     .error( function( err ) {
       logger.error( 'Logs model, health(...), Elasticsearch error:', err );
     } );
@@ -66,18 +67,19 @@ exports.health = function( pars ) {
 
 //  ---------------------------------
 //  returns promise which gets an indices list as a string
-//  pars may contain
+//  opts {
 //      index: string | array of strings, default "logstash-*"
 //      v: true, column names
-exports.indicesList = function( pars ) {
+//  }
+exports.indicesList = function( opts ) {
 
-  pars = pars || {};
-  pars.index = pars.index || 'logstash-*';
-  if ( pars.verbose ) {
-    pars.v = true;
+  opts = opts || {};
+  opts.index = opts.index || 'logstash-*';
+  if ( opts.verbose ) {
+    opts.v = true;
   }
 
-  return client.cat.indices( pars )
+  return client.cat.indices( opts )
     .error( function( err ) {
       logger.error( 'Logs model, indicesList(...), Elasticsearch error:', err );
     } );
@@ -86,24 +88,27 @@ exports.indicesList = function( pars ) {
 //  ---------------------------------
 //  [domain] field aggregation
 //  returns promise which gets an array with domain names as argument
-//  pars may contain
+//  opts {
 //      index: string | array of strings, default is logstash-YYYY.MM.DD, where YYYY.MM.DD is today
 //      size: maximum size of result, default: 100
 //      minCount: result will contain domains which have been found in such amount hits or more, default: 1000
-exports.domainsList = function( pars ) {
+//  }
+exports.domainsList = function( opts ) {
 
-  pars = pars || {};
+  opts = opts || {};
+  opts.minCount = parseInt( opts.minCount || 1000 );
+  opts.size = parseInt( opts.size || 100 );
 
   return client.search( {
-    index: pars.index || last_index_(),
+    index: opts.index || last_index_(),
     size: 0,
     body: {
       aggs: {
         group_by_domain: {
           terms: {
             field: 'domain.raw',
-            size: pars.size || 100,
-            min_doc_count: pars.minCount || 1000,
+            size: opts.size,
+            min_doc_count: opts.minCount,
             exclude: '-'
           },
         },

@@ -90,7 +90,7 @@ var compare_ = function(prod, test) {
 //  ----------------------------------------------------------------------------------------------//
 
 var cached_req_array,
-  cached_pars;
+  cached_opts;
 
 //  ---------------------------------
 var fire_one_ = function( opts ) {
@@ -103,14 +103,14 @@ var fire_one_ = function( opts ) {
 };
 
 //  ---------------------------------
-//  fire requests simultaneously via production and test proxies
-exports.fire = function(req_array, pars) {
+//  fire requests in parallel with concurrency 64 via production and test proxies
+exports.fire = function(req_array, opts) {
 
-  pars = pars || {};
-  pars.proxy_prod = pars.proxy_prod || app_config.get('proxies').production;
-  pars.proxy_test = pars.proxy_test || app_config.get('proxies').testing;
-  cached_pars = pars;
-  if (pars.verbose) {
+  opts = opts || {};
+  opts.proxy_prod = opts.proxy_prod || app_config.get('proxies').production;
+  opts.proxy_test = opts.proxy_test || app_config.get('proxies').testing;
+  cached_opts = opts;
+  if (opts.verbose) {
     logger.transports.console.level = 'verbose';
   }
 
@@ -119,9 +119,9 @@ exports.fire = function(req_array, pars) {
     var opts = buildReq(req_array[i]);
 
     //  even requests go through production proxy, odd - via testing
-    opts.proxy = pars.proxy_prod;
+    opts.proxy = opts.proxy_prod;
     cached_req_array.push( opts );
-    opts.proxy = pars.proxy_test;
+    opts.proxy = opts.proxy_test;
     cached_req_array.push( opts );
   }
 
