@@ -216,6 +216,40 @@ exports.fire = function( req_array, opts ) {
     });
 };
 
+//  ---------------------------------
+//  fire ONE request via production and test proxies
+exports.fire1 = function( url, opts ) {
+
+  opts = opts || {};
+  opts.proxy_prod = opts.proxy_prod || proxies.production;
+  opts.proxy_test = opts.proxy_test || proxies.testing;
+  opts.method = opts.methos || 'GET';
+  cached_opts = opts;
+  if ( opts.verbose ) {
+    logger.transports.console.level = 'verbose';
+  }
+
+  cached_count = 1;
+  cached_req_array = [];
+  cached_req_array.push({
+    url: url,
+    method: opts.method,
+    tunnel: false,
+    headers: {},
+    timeout: 15000
+  });
+
+  return promise.map( cached_req_array, fire_four_, { concurrency: 1 } )
+    .then( function( resp ) {
+      resp = resp['0'];
+      resp.error = compare_( resp.headers_prod, resp.headers_test );
+      return resp;
+    })
+    .catch( function( err ) {
+      logger.error( 'requests model, fire(...), error:', err );
+    });
+};
+
 
 //  ----------------------------------------------------------------------------------------------//
 
