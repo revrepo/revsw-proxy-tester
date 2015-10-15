@@ -247,16 +247,17 @@ exports.fire = function( req_array, opts ) {
 // }
 var compare_ = function( prod, test ) {
 
-  var d_ = ( _.detect( [ 'content-type', 'content-length', 'etag', 'last-modified', 'x-rev-cache' ], function( item ) {
+  // var d_ = ( _.detect( [ 'content-type', 'content-length', 'etag', 'last-modified', 'x-rev-cache' ], function( item ) {
+  var d_ = ( _.detect( [ 'content-type', 'content-length', 'last-modified', 'x-rev-cache' ], function( item ) {
     test[ item ] = test[ item ] || '';
     prod[ item ] = prod[ item ] || '';
     return prod[ item ] !== test[ item ];
   } ) ) || '';
 
   //  check etag for "weakness"
-  if ( d_ === 'etag' && prod.etag.substr( 0, 2 ) === 'W/' && test.etag.substr( 0, 2 ) === 'W/' ) {
-    d_ = ''; //  ignore weak etags
-  }
+  // if ( d_ === 'etag' && prod.etag.substr( 0, 2 ) === 'W/' && test.etag.substr( 0, 2 ) === 'W/' ) {
+  //   d_ = ''; //  ignore weak etags
+  // }
 
   return d_;
 };

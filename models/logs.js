@@ -205,23 +205,12 @@ var run_second_query_ = function( data ) {
         filtered: {
           filter: {
             bool: {
-              must: [ {
-                term: {
-                  'domain.raw': curr_opts.domain
-                }
-              }, {
-                term: {
-                  method: data.method
-                }
-              }, {
-                term: {
-                  ipport: data.ipport
-                }
-              }, {
-                term: {
-                  'request.raw': data.request
-                }
-              }, ]
+              must: [
+                { term: { 'domain.raw': curr_opts.domain } },
+                { term: { method: data.method } },
+                { term: { ipport: data.ipport } },
+                { term: { 'request.raw': data.request } },
+              ]
             }
           }
         }
@@ -278,9 +267,20 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
     size: 0,
     body: {
       query: {
-        term: {
-          'domain.raw': opts.domain
-        },
+        filtered: {
+          filter: {
+            bool: {
+              must: [
+                { term: { 'domain.raw': opts.domain } },
+              ],
+              should: [
+                { term : { method: 'get' } },
+                { term : { method: 'head' } },
+                { term : { method: 'post' } },
+              ]
+            }
+          }
+        }
       },
       aggs: {
         group_by_method: {

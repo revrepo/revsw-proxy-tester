@@ -18,7 +18,7 @@
     "transports": {
       "Console": {
         "level": "info",
-        "colorize": true,
+        "colorize": false,
         "prettyPrint": true,
         "humanReadableUnhandledException": true,
         "showLevel": true
