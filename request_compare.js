@@ -103,13 +103,14 @@ fs.readFileAsync(conf.file)
   })
   .then(function(responses) {
 
-    var len = responses.length / 2;
     var diffs = reqs.compare(responses);
+    var len = diffs.total;
+    diffs = diffs.diffs;
 
     ratio = 100 * (len - diffs.length) / len;
     took = ( ( Date.now() - took ) / 1000 ).toFixed(2);
 
-    logger.info(len + ' responses received, in ' + took + 's');
+    logger.info(len + ' responses processed, in ' + took + 's');
     logger.info(diffs.length + ' failure comparisons');
     logger.info(ratio.toFixed(2) + ' passed ratio');
 

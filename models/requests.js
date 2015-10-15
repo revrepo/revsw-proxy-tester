@@ -19,12 +19,19 @@
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
 
-var _ = require('underscore'),
-  promise = require('bluebird'),
-  req = promise.promisify(require('request')),
-  app_config = require('config'),
-  logger = require('revsw-logger')(app_config.get('log_config'));
+var _ = require( 'underscore' ),
+  promise = require( 'bluebird' ),
+  req = promise.promisify( require( 'request' ) ),
+  app_config = require( 'config' ),
+  logger = require( 'revsw-logger' )( app_config.get( 'log_config' ) );
 
+var defaults = app_config.get( 'defaults' ),
+  proxies = app_config.get( 'proxies' );
+
+//  ----------------------------------------------------------------------------------------------//
+var cached_req_array,
+  cached_opts,
+  cached_count;
 
 //  ---------------------------------
 //  build new request options
@@ -37,19 +44,180 @@ var _ = require('underscore'),
 //     "request": "/Images/favicon.ico",
 //     "count": 418
 // }
-var buildReq = function(data) {
+var buildReq = function( data ) {
   return {
-    url: (data.ipport === '443' ? 'https://' : 'http://') + data.domain + data.request,
+    url: ( data.ipport === '443' ? 'https://' : 'http://' ) + data.domain + data.request,
     method: data.method.toUpperCase(),
     tunnel: false,
     headers: {
       'User-Agent': data.agent,
       'Referer': data.referer
-    }
+    },
+    timeout: 15000
   };
 };
 
 //  ---------------------------------
+//  fire 2 by 2 requests via proxies and return promise with results
+//  in case of GET requests, first run HEAD then check content size against [defaults.tooBigContent]
+//  returned promise is neve rejected, in case of troubles it resolved with false
+var fire_four_ = function( opts ) {
+
+  var resolve,
+    deferred = new promise( function( rslv /*, reject*/ ) {
+      resolve = rslv;
+    });
+
+  var responses = { request: opts },
+    fires = [ _.clone( opts ), _.clone( opts )];
+  fires[0].proxy = cached_opts.proxy_prod;
+  fires[1].proxy = cached_opts.proxy_test;
+
+  var inner = promise.resolve( true )
+
+  if ( opts.method === 'GET' ) {
+    //  first check the size of content, send HEAD instead of GET
+    inner
+      .then( function() {
+        opts.method = 'HEAD';
+        return req( opts );
+      })
+      .then( function( resp ) {
+        opts.method = 'GET';
+
+        //  then check the [content-length] header
+        if ( resp[0].headers[ 'content-length' ] === undefined ||
+             parseInt( resp[0].headers[ 'content-length' ] ) > defaults.tooBigContent ) {
+
+          // logger.warn( resp[0].headers );
+
+          logger.verbose( ' - too big or undefined content length: ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+          resolve( false );
+          return false;
+        }
+        return true;
+      })
+      .then( function( resp ) {
+        if ( !resp ) {
+          // fall through
+          return false;
+        }
+
+        logger.verbose( 'fired ' + opts.method + ':' + opts.url );
+        var fired = fires.map( function( request ) {
+          return req( request );
+        });
+        return promise.all( fired );
+      })
+      .then( function( resp ) {
+        if ( !resp ) {
+          // fall through
+          return false;
+        }
+
+        responses.headers_prod_1st = resp[0][0].headers;
+        responses.headers_test_1st = resp[1][0].headers;
+
+        //  same requests again
+        var fired = fires.map( function( request ) {
+          return req( request );
+        });
+        return promise.all( fired );
+      })
+      .then( function( resp ) {
+        if ( !resp ) {
+          return false;
+        }
+
+        responses.headers_prod = resp[0][0].headers;
+        responses.headers_test = resp[1][0].headers;
+
+        logger.verbose( ' completed ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+        resolve( responses );
+      })
+      .catch( function( e ) {
+        logger.verbose( ' * error ' + ( e.message ? e.message : '' ) + ': ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+        resolve( false );
+        return true;
+      });
+
+  } else {
+
+    inner
+      .then( function( resp ) {
+        if ( !resp ) {
+          // fall through
+          return false;
+        }
+
+        logger.verbose( 'fired ' + opts.method + ':' + opts.url );
+        var fired = fires.map( function( request ) {
+          return req( request );
+        });
+        return promise.all( fired );
+      })
+      .then( function( resp ) {
+        if ( !resp ) {
+          // fall through
+          return false;
+        }
+
+        responses.headers_prod_1st = resp[0][0].headers;
+        responses.headers_test_1st = resp[1][0].headers;
+
+        //  same requests again
+        var fired = fires.map( function( request ) {
+          return req( request );
+        });
+        return promise.all( fired );
+      })
+      .then( function( resp ) {
+        if ( !resp ) {
+          return false;
+        }
+
+        responses.headers_prod = resp[0][0].headers;
+        responses.headers_test = resp[1][0].headers;
+
+        logger.verbose( ' completed ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+        resolve( responses );
+      })
+      .catch( function( e ) {
+        logger.verbose( ' * nope, error ' + ( e.message ? e.message : '' ) + ': ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+        resolve( false );
+        return true;
+      });
+  }
+
+  return deferred;
+};
+
+//  ---------------------------------
+//  fire requests in parallel with concurrency 64 via production and test proxies
+exports.fire = function( req_array, opts ) {
+
+  opts = opts || {};
+  opts.proxy_prod = opts.proxy_prod || proxies.production;
+  opts.proxy_test = opts.proxy_test || proxies.testing;
+  cached_opts = opts;
+  if ( opts.verbose ) {
+    logger.transports.console.level = 'verbose';
+  }
+
+  cached_count = req_array.length;
+  cached_req_array = [];
+  for ( var i = 0, len = req_array.length; i < len; ++i ) {
+    cached_req_array.push( buildReq( req_array[ i ] ) );
+  }
+
+  return promise.map( cached_req_array, fire_four_, { concurrency: 64 } )
+    .catch( function( err ) {
+      logger.error( 'requests model, fire(...), error:', err );
+    });
+};
+
+
+//  ----------------------------------------------------------------------------------------------//
 
 //  MAIN function here - gets 2 header structs and makes decision whether they are (almost) equal
 
@@ -77,79 +245,41 @@ var buildReq = function(data) {
 //     'x-rev-cache-total-time': '0',
 //     'accept-ranges': 'bytes'
 // }
-var compare_ = function(prod, test) {
+var compare_ = function( prod, test ) {
 
-  return ( _.detect(['content-type', 'content-length', 'etag', 'last-modified', 'x-rev-cache'], function(item) {
-      test[item] = test[item] || '';
-      prod[item] = prod[item] || '';
-      return prod[item] !== test[item];
-    }) ) || '';
-};
+  var d_ = ( _.detect( [ 'content-type', 'content-length', 'etag', 'last-modified', 'x-rev-cache' ], function( item ) {
+    test[ item ] = test[ item ] || '';
+    prod[ item ] = prod[ item ] || '';
+    return prod[ item ] !== test[ item ];
+  } ) ) || '';
 
-
-//  ----------------------------------------------------------------------------------------------//
-
-var cached_req_array,
-  cached_opts;
-
-//  ---------------------------------
-var fire_one_ = function( opts ) {
-  logger.verbose( 'fired ' + opts.method + ':' + opts.url );
-  return req( opts )
-    .then( function( response ) {
-      logger.verbose( '  completed ' + opts.method + ':' + opts.url );
-      return response;
-    });
-};
-
-//  ---------------------------------
-//  fire requests in parallel with concurrency 64 via production and test proxies
-exports.fire = function(req_array, opts) {
-
-  opts = opts || {};
-  opts.proxy_prod = opts.proxy_prod || app_config.get('proxies').production;
-  opts.proxy_test = opts.proxy_test || app_config.get('proxies').testing;
-  cached_opts = opts;
-  if (opts.verbose) {
-    logger.transports.console.level = 'verbose';
+  //  check etag for "weakness"
+  if ( d_ === 'etag' && prod.etag.substr( 0, 2 ) === 'W/' && test.etag.substr( 0, 2 ) === 'W/' ) {
+    d_ = ''; //  ignore weak etags
   }
 
-  cached_req_array = [];
-  for (var i = 0, len = req_array.length; i < len; ++i) {
-    var opts = buildReq(req_array[i]);
-
-    //  even requests go through production proxy, odd - via testing
-    opts.proxy = opts.proxy_prod;
-    cached_req_array.push( opts );
-    opts.proxy = opts.proxy_test;
-    cached_req_array.push( opts );
-  }
-
-  return promise.map( cached_req_array, fire_one_, { concurrency: 64 })
-    .error(function(err) {
-      logger.error('requests model, fire(...), error:', err);
-    });
+  return d_;
 };
+
 
 //  ---------------------------------
 //  compare received prod/test responses and returns array with differences
-exports.compare = function(response) {
+exports.compare = function( response ) {
 
-  var diffs = [];
-  for (var i = 0, len = response.length; i < len; i += 2) {
-    var headers_prod = response[i][0].headers, //  response[i][1] <-- response's body
-      headers_test = response[i + 1][0].headers;
+  // logger.warn( response );
 
-    var cmp = compare_(headers_prod, headers_test);
-    if ( cmp !== '' ) {
-      diffs.push({
-        req: cached_req_array[i / 2],
-        error: cmp,
-        headers_prod: headers_prod,
-        headers_test: headers_test,
-      });
-    }
-  }
+  response = _.filter( response, function( item ) {
+    return !!item;
+  })
+  var count = response.length;
+  response = _.filter( response, function( item ) {
+    item.error = compare_( item.headers_prod, item.headers_test );
+    return item.error !== '';
+  });
 
-  return diffs;
+  return {
+    diffs: response,
+    total: count
+  };
 };
+

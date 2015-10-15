@@ -33,21 +33,21 @@ var last_index_ = function() {
 
 //  ---------------------------------
 //  defaults
-var logs_config = {
-  topAgents: 50,
-  topReferers: 100,
-  topURLs: 100,
-  minCount: 200, //  least amount of hits for the any combination of the url, port, method, agent and referer
-};
+var defaults = app_config.get( 'defaults' ),
+  elastic_config = app_config.get( 'elastic' );
+  // topAgents: 50,
+  // topReferers: 100,
+  // topURLs: 100,
+  // minCount: 200, //  least amount of hits for the any combination of the url, port, method, agent and referer
+
 
 var client = new elastic.Client( {
-  host: app_config.get( 'elastic' ).host,
-  apiVestion: app_config.get( 'elastic' ).version,
+  host: elastic_config.host,
+  apiVestion: elastic_config.version,
   log: [ {
     type: 'stdio',
     levels: [ 'error', 'warning' ]
   } ],
-  // requestTimeout: 300000
   requestTimeout: Infinity
 } );
 
@@ -253,7 +253,7 @@ var run_second_query_ = function( data ) {
   } ).then( function( resp ) {
 
     took = ( ( Date.now() - took ) / 1000 ).toFixed( 2 );
-    logger.verbose( '  completed 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + '(' + ( ++curr_opts.rcount ) + '/' + took + 's)' );
+    logger.verbose( '  completed 2nd lvl query for: ' + data.method + ':' + data.ipport + data.request + ' (' + ( ++curr_opts.rcount ) + '/' + took + 's)' );
     data.lvl2 = resp;
     return data;
   } );
@@ -357,10 +357,10 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
 //  options: {
 //      domain: array with 1+ domain [required]
 //      index: string, default is logstash-YYYY.MM.DD, where YYYY.MM.DD is today, see CAUTION above
-//      topAgents: number of top agent variants, default logs_config.topAgents
-//      topReferers: number of top referer variants, default logs_config.topReferers
-//      topURLs: number of top request variants, default logs_config.topURLs
-//      minCount: least amount of hits for every combination, default logs_config.minCount
+//      topAgents: number of top agent variants, default defaults.topAgents
+//      topReferers: number of top referer variants, default defaults.topReferers
+//      topURLs: number of top request variants, default defaults.topURLs
+//      minCount: least amount of hits for every combination, default defaults.minCount
 //      verbose: additional info about second level requests
 //  }
 
@@ -381,7 +381,7 @@ exports.aggregateTopRequests = function( options ) {
     logger.transports.console.level = 'verbose';
   }
 
-  _.defaults( options, logs_config );
+  _.defaults( options, defaults );
   options.index = options.index || last_index_();
   options.minCount = parseInt( options.minCount );
   options.minCount2Lvl = Math.ceil( options.minCount / 4 );

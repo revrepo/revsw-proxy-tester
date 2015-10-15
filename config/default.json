@@ -1,5 +1,11 @@
 {
-  "port": 1337,
+  "defaults": {
+    "topAgents": 50,
+    "topReferers": 100,
+    "topURLs": 100,
+    "minCount": 200,            //  least amount of hits for the any combination of the url, port, method, agent and referer
+    "tooBigContent": 1048576    //  1M
+    },
   "elastic": {
     "host": "TESTSJC20-ES01.revsw.net:9200",
     "version": "1.5"
