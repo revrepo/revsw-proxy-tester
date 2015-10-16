@@ -73,7 +73,7 @@ var fire_four_ = function( opts ) {
   fires[0].proxy = cached_opts.proxy_prod;
   fires[1].proxy = cached_opts.proxy_test;
 
-  var inner = promise.resolve( true )
+  var inner = promise.resolve( true );
 
   if ( opts.method === 'GET' ) {
     //  first check the size of content, send HEAD instead of GET
@@ -223,25 +223,26 @@ exports.fire1 = function( url, opts ) {
   opts = opts || {};
   opts.proxy_prod = opts.proxy_prod || proxies.production;
   opts.proxy_test = opts.proxy_test || proxies.testing;
-  opts.method = opts.methos || 'GET';
+  opts.method = opts.method || 'GET';
+  opts.method.toUpperCase();
   cached_opts = opts;
   if ( opts.verbose ) {
     logger.transports.console.level = 'verbose';
   }
 
   cached_count = 1;
-  cached_req_array = [];
-  cached_req_array.push({
+  return fire_four_({
     url: url,
     method: opts.method,
     tunnel: false,
     headers: {},
     timeout: 15000
-  });
-
-  return promise.map( cached_req_array, fire_four_, { concurrency: 1 } )
+  })
     .then( function( resp ) {
-      resp = resp['0'];
+
+      if ( !resp.headers_prod || !resp.headers_test ) {
+        return false;
+      }
       resp.error = compare_( resp.headers_prod, resp.headers_test );
       return resp;
     })
@@ -305,7 +306,7 @@ exports.compare = function( response ) {
 
   response = _.filter( response, function( item ) {
     return !!item;
-  })
+  });
   var count = response.length;
   response = _.filter( response, function( item ) {
     item.error = compare_( item.headers_prod, item.headers_test );
