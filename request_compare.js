@@ -158,8 +158,7 @@ if ( action === 'test' ) {
   took = Date.now();
   reqs.fire1( conf.url, conf )
     .then( function( data ) {
-      logger.warn( data );
-
+      logger.info( data );
     })
 
 

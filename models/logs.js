@@ -362,6 +362,7 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
 //      topURLs: number of top request variants, default defaults.topURLs
 //      minCount: least amount of hits for every combination, default defaults.minCount
 //      verbose: additional info about second level requests
+//      silent: zero logging for tests
 //  }
 
 exports.aggregateTopRequests = function( options ) {
@@ -377,7 +378,9 @@ exports.aggregateTopRequests = function( options ) {
     throw ( new Error( 'Logs model, aggregateTopRequests(...), missing [domain] parameter' ) );
   }
 
-  if ( options.verbose ) {
+  if ( options.silent ) {
+    logger.transports.console.level = 'error';
+  } else if ( options.verbose ) {
     logger.transports.console.level = 'verbose';
   }
 

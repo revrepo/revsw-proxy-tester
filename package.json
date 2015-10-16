@@ -4,7 +4,8 @@
     "description": "A tool to test the functionality of new proxy server versions",
     "main": "app.js",
     "scripts": {
-        "test": "cd test/ && mocha tests.node.js && karma start"
+        "test": "mocha",
+        "run": "node collect.js --help"
     },
     "author": "DmitryM <googgah@gmail.com>",
     "repository": {
@@ -21,7 +22,6 @@
         "revsw-logger": "*"
     },
     "devDependencies": {
-        "request-debug": "*",
         "mocha": "*",
         "chai": "*"
     }
