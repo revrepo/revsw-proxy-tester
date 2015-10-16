@@ -223,8 +223,8 @@ exports.fire1 = function( url, opts ) {
   opts = opts || {};
   opts.proxy_prod = opts.proxy_prod || proxies.production;
   opts.proxy_test = opts.proxy_test || proxies.testing;
-  opts.method = opts.method || 'GET';
-  opts.method.toUpperCase();
+  opts.method = ( opts.method || 'GET' ).toUpperCase();
+  opts.timeout = opts.timeout || 15000; //  for testing
   cached_opts = opts;
   if ( opts.verbose ) {
     logger.transports.console.level = 'verbose';
@@ -236,7 +236,7 @@ exports.fire1 = function( url, opts ) {
     method: opts.method,
     tunnel: false,
     headers: {},
-    timeout: 15000
+    timeout: opts.timeout
   })
     .then( function( resp ) {
 
