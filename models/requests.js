@@ -68,8 +68,12 @@ var fire_four_ = function( opts ) {
       resolve = rslv;
     });
 
-  var responses = { request: opts },
-    fires = [ _.clone( opts ), _.clone( opts )];
+  var responses = {
+    request: opts.request,
+    domain: opts.domain
+  };
+  opts = opts.request;
+  var fires = [ _.clone( opts ), _.clone( opts )];
   fires[0].proxy = cached_opts.proxy_prod;
   fires[1].proxy = cached_opts.proxy_test;
 
@@ -207,45 +211,13 @@ exports.fire = function( req_array, opts ) {
   cached_count = req_array.length;
   cached_req_array = [];
   for ( var i = 0, len = req_array.length; i < len; ++i ) {
-    cached_req_array.push( buildReq( req_array[ i ] ) );
+    cached_req_array.push({
+      request: buildReq( req_array[i] ),
+      domain: req_array[i].domain
+    });
   }
 
   return promise.map( cached_req_array, fire_four_, { concurrency: 64 } )
-    .catch( function( err ) {
-      logger.error( 'requests model, fire(...), error:', err );
-    });
-};
-
-//  ---------------------------------
-//  fire ONE request via production and test proxies
-exports.fire1 = function( url, opts ) {
-
-  opts = opts || {};
-  opts.proxy_prod = opts.proxy_prod || proxies.production;
-  opts.proxy_test = opts.proxy_test || proxies.testing;
-  opts.method = ( opts.method || 'GET' ).toUpperCase();
-  opts.timeout = opts.timeout || 15000; //  for testing
-  cached_opts = opts;
-  if ( opts.verbose ) {
-    logger.transports.console.level = 'verbose';
-  }
-
-  cached_count = 1;
-  return fire_four_({
-    url: url,
-    method: opts.method,
-    tunnel: false,
-    headers: {},
-    timeout: opts.timeout
-  })
-    .then( function( resp ) {
-
-      if ( !resp.headers_prod || !resp.headers_test ) {
-        return false;
-      }
-      resp.error = compare_( resp.headers_prod, resp.headers_test );
-      return resp;
-    })
     .catch( function( err ) {
       logger.error( 'requests model, fire(...), error:', err );
     });
@@ -280,22 +252,67 @@ exports.fire1 = function( url, opts ) {
 //     'x-rev-cache-total-time': '0',
 //     'accept-ranges': 'bytes'
 // }
-var compare_ = function( prod, test ) {
 
-  // var d_ = ( _.detect( [ 'content-type', 'content-length', 'etag', 'last-modified', 'x-rev-cache' ], function( item ) {
-  var d_ = ( _.detect( [ 'content-type', 'content-length', 'last-modified', 'x-rev-cache' ], function( item ) {
-    test[ item ] = test[ item ] || '';
-    prod[ item ] = prod[ item ] || '';
-    return prod[ item ] !== test[ item ];
-  } ) ) || '';
+var build_comparators_ = function() {
 
-  //  check etag for "weakness"
-  // if ( d_ === 'etag' && prod.etag.substr( 0, 2 ) === 'W/' && test.etag.substr( 0, 2 ) === 'W/' ) {
-  //   d_ = ''; //  ignore weak etags
-  // }
+  var comparators = app_config.get( 'comparators' );
+  //  node-config return frozen objects
+  //  it's quite stupid, slow but working workaround
+  comparators = JSON.parse( JSON.stringify( comparators ) );
 
-  return d_;
-};
+  var def_comparator = function( prod, test ) {
+    return prod === test;
+  }
+
+  _.each( comparators, function( item ) {
+    _.each( item, function( key ) {
+      if ( !key ) {
+        return;
+      }
+      if ( key.comparator ) {
+        key.comparator = new Function( 'prod, test', key.comparator );
+      } else {
+        key.comparator = def_comparator;
+      }
+    });
+  });
+
+  _.each( comparators, function( item ) {
+    if ( item !== comparators.default ) {
+      _.defaults( item, comparators.default );
+    }
+  });
+
+  //
+  return function( prod, test, domain ) {
+    var curr = comparators[domain] ? comparators[domain] : comparators.default;
+    for ( var key in curr ) {
+
+      if ( curr[key] === false ) {
+        //  command to not check
+        continue;
+      }
+
+      if ( test[key] === undefined && prod[key] === undefined ) {
+        //  key is not presented in both datasets - nothing to do
+        continue;
+      }
+
+      if ( test[key] !== undefined && prod[key] !== undefined ) {
+        if ( curr[key].comparator( prod[key], test[key] ) ) {
+          continue;
+        } else {
+          //  comparator failed
+          return key;
+        }
+      }
+
+      //  difference in the key existence
+      return key + ' existence';
+    }
+    return '';
+  }
+}
 
 
 //  ---------------------------------
@@ -307,15 +324,74 @@ exports.compare = function( response ) {
   response = _.filter( response, function( item ) {
     return !!item;
   });
-  var count = response.length;
+
+  var count = response.length,
+    errors = {},
+    compare_ = build_comparators_();
+
   response = _.filter( response, function( item ) {
-    item.error = compare_( item.headers_prod, item.headers_test );
-    return item.error !== '';
+
+    item.error = compare_( item.headers_prod, item.headers_test, item.domain );
+
+    if ( item.error !== '' ) {
+      if ( !errors[item.error] ) {
+        errors[item.error] = 0;
+      }
+      ++errors[item.error];
+      return true;
+    }
+
+    return false;
   });
 
   return {
     diffs: response,
-    total: count
+    total: count,
+    errors: errors
   };
 };
+
+//  ----------------------------------------------------------------------------------------------//
+
+//  fire ONE request via production and test proxies
+exports.fire1 = function( url, opts ) {
+
+  opts = opts || {};
+  opts.proxy_prod = opts.proxy_prod || proxies.production;
+  opts.proxy_test = opts.proxy_test || proxies.testing;
+  opts.method = ( opts.method || 'GET' ).toUpperCase();
+  opts.timeout = opts.timeout || 15000; //  for testing
+  cached_opts = opts;
+  if ( opts.verbose ) {
+    logger.transports.console.level = 'verbose';
+  }
+
+  var domain = (/(http\:\/\/|https\:\/\/){0,1}([\S\.]+?)(\/|$)/).exec( url );
+  domain = ( domain && domain[2] ) ? domain[2] : '-';
+  var compare_ = build_comparators_();
+
+  cached_count = 1;
+  return fire_four_({
+    request:  {
+      url: url,
+      method: opts.method,
+      tunnel: false,
+      headers: {},
+      timeout: opts.timeout
+    },
+    domain: domain
+  })
+    .then( function( resp ) {
+
+      if ( !resp.headers_prod || !resp.headers_test ) {
+        return false;
+      }
+      resp.error = compare_( resp.headers_prod, resp.headers_test, domain );
+      return resp;
+    })
+    .catch( function( err ) {
+      logger.error( 'requests model, fire(...), error:', err );
+    });
+};
+
 

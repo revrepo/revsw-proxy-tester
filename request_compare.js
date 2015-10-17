@@ -116,10 +116,11 @@ if ( action === 'rnc' ) {
     })
     .then(function(responses) {
 
-      var diffs = reqs.compare(responses);
-      var len = diffs.total;
-      diffs = diffs.diffs;
+      var diffs = reqs.compare(responses),
+        len = diffs.total,
+        errors = diffs.errors;
 
+      diffs = diffs.diffs;
       ratio = 100 * (len - diffs.length) / len;
       took = ( ( Date.now() - took ) / 1000 ).toFixed(2);
 
@@ -128,6 +129,7 @@ if ( action === 'rnc' ) {
       logger.info(ratio.toFixed(2) + ' passed ratio');
 
       if (diffs.length) {
+        logger.warn('errors: ', errors);
         logger.warn('diffs are being saved to ' + conf.file + '.diff.json');
         return fs.writeFileAsync(conf.file + '.diff.json', JSON.stringify(diffs, null, 2));
       }
