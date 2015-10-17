@@ -20,15 +20,15 @@ If the number of successful comparisons divided by the total number of requests 
 ## Install
 
 Clone it from the repository
-```
+```bash
 # git clone git@github.com:revrepo/revsw-proxy-tester.git
 ```
 then install dependencies
-```
+```bash
 # cd revsw-proxy-tester
 # npm install
 ```
-It goes without saying, that last version of node.js should be installed in the system.
+It goes without saying, that the last version of node.js should be installed in the system.
 
 
 ## Usage of `collect.js`
@@ -36,10 +36,10 @@ It goes without saying, that last version of node.js should be installed in the 
 Elasticsearch provides aggregation rig for grouping requests with equal values of the given fields. Unfortunately, nested aggregations is very RAM(and time) consuming operation, incorrect parameter settings may lead to server crash.
 
 To start it type as follows:
-```
+```bash
 # [NODE_ENV=production] node collect.js [..options..]
 ```
-**Note about production mode** : the presence of the `NODE_ENV=production` means that all requests will run to the production Elasticsearch cluster. And vice versa - absence of it means that you work/play with the testing Elasticsearch cluster.
+The presence of the `NODE_ENV=production` means that all requests will run to the production Elasticsearch cluster. And vice versa - absence of it means that you work/play with the testing Elasticsearch cluster.
 
 Options are as follows:
 ```
@@ -66,7 +66,7 @@ Options are as follows:
 
 #### Examples
 To get indices list(filtered to Oct 2015 below):
-```
+```bash
 # NODE_ENV=production node collect.js -I logstash-2015.10* -v
 info: Indices list:
 health status index               pri rep docs.count docs.deleted store.size pri.store.size
@@ -78,7 +78,7 @@ green  open   logstash-2015.10.10   5   1   94795876            0    115.3gb    
 ......
 ```
 To get domains list for the given index:
-```
+```bash
 NODE_ENV=production node collect.js -D -i logstash-2015.10.15 -v
 info: Domains list:
 { '0': { key: 'www.metacafe.com', doc_count: 23345141 },
@@ -91,13 +91,13 @@ info: Domains list:
   '59': { key: 'www.mbeans.com', doc_count: 1306 } }
 ```
 After you decided what domains you need to get requests for, your command would be like this:
-```
+```bash
 NODE_ENV=production node collect.js -v -i logstash-2015.10.15 -d res.mccont.com s1.mcstatic.com --min-count 500
 ```
 That means: run query against _production_ ES cluster, collect requests from `logstash-2015.10.15` index, only for domains `res.mccont.com` and `s1.mcstatic.com`, consider only combinations with 500+ hits, save the result into `res.mccont.com.2.json` file. Default output file name consists of _first_ domain name and number of domains.
 
 And you'll get something like the following for every domain name:
-```
+```bash
 verbose: config:
 { domain: 'res.mccont.com',
   index: 'logstash-2015.10.15',
@@ -116,7 +116,7 @@ info: 2nd lvl done, YYYY records, in MMMM.MMs
 ```
 Lines started with 'verbose' mark output only with __-v__ specified in the command line.
 The result of the above command stored in the json file with the format:
-```
+```json
 {
   "domain": "vl.mccont.com",
   "method": "get",
