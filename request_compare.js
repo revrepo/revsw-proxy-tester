@@ -161,8 +161,7 @@ if ( action === 'test' ) {
   reqs.fire1( conf.url, conf )
     .then( function( data ) {
       logger.info( data );
-    })
-
+    });
 
 }
 
