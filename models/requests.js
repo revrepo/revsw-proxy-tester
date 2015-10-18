@@ -18,6 +18,7 @@
 
 //  ----------------------------------------------------------------------------------------------//
 'use strict';
+/*jshint -W054 */
 
 var _ = require( 'underscore' ),
   promise = require( 'bluebird' ),
@@ -262,7 +263,7 @@ var build_comparators_ = function() {
 
   var def_comparator = function( prod, test ) {
     return prod === test;
-  }
+  };
 
   _.each( comparators, function( item ) {
     _.each( item, function( key ) {
@@ -311,8 +312,8 @@ var build_comparators_ = function() {
       return key + ' existence';
     }
     return '';
-  }
-}
+  };
+};
 
 
 //  ---------------------------------
