@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "topAgents": 50,
+    "topReferers": 100,
+    "topURLs": 100,
+    "minCount": 10,            //  least amount of hits for the any combination of the url, port, method, agent and referer
+    "tooBigContent": 1048576,   //  1M
+    "requestsConcurrency": 32
+  },
+  "domains": [
+    { "name": "portal-qa-domain.revsw.net", "opts": { "minCount": 500 } },
+    { "name": "test-proxy-cache-config.revsw.net", "opts": { "minCount": 50 } },
+    { "name": "www3.metacafe.com", "opts": { "minCount": 50 } }
+  ]
+}
+
+    // { "name": "testsjc20-bp01", "opts": { "minCount": 50 } },
+    // { "name": "testsjc20-bp01.revsw.net", "opts": { "minCount": 50 } },
+    // { "name": "test-proxy-cache-config-02.revsw.net", "opts": { "minCount": 10 } },
+    // { "name": "test-proxy-dsa-config.revsw.net", "opts": { "minCount": 10 } },
+    // { "name": "test-proxy-rma-config.revsw.net", "opts": { "minCount": 10 } },
+    // { "name": "qa-api-test-domain.revsw.net", "opts": { "minCount": 10 } },
+    // { "name": "test-proxy-headers.revsw.net", "opts": { "minCount": 10 } },
+    // { "name": "quic-test.revsw.net", "opts": { "minCount": 10 } },
+    // { "name": "qa-cds-purge-test.revsw.net", "opts": { "minCount": 10 } }

@@ -34,14 +34,15 @@ var showHelp = function() {
   console.log('  Usage:');
   console.log('    -C :');
   console.log('        Collection mode (default)');
-  console.log('    -d, --domain :');
-  console.log('        domain name or names(space delimited) for the collection mode (required)');
   console.log('    -i, --index :');
   console.log('        index name (optional)');
+  console.log('    -d, --domain :');
+  console.log('        domain name or names(space delimited) for the collection mode (required);');
+  console.log('        a sign "@" at the name start denotes json file with an array with domain names');
   console.log('    --min-count :');
   console.log('        least amount of hits for every combination of port+uri+method+agent+referer');
-  console.log('    -o, --out :');
-  console.log('        file name to store output, "[domain].json" is default');
+  console.log('    --data-dir :');
+  console.log('        path to store collected data, default is . ');
   console.log('    -D, --domain-list :');
   console.log('        Domains list mode, for the given (optional) index');
   console.log('    -I, --indices-list :');
@@ -49,7 +50,9 @@ var showHelp = function() {
   console.log('    -H, --health (cluster(default) | indices | shards) :');
   console.log('        Cluster Health mode');
   console.log('    -v, --verbose :');
-  console.log('        (guess)');
+  console.log('        blabbing output');
+  console.log('    --silent :');
+  console.log('        only errors');
   console.log('\n  CAUTION:');
   console.log('        Collection mode puts a heavy load on ES cluster, run it against one index,');
   console.log('        avoid using broad index filters like logstash-* !');
@@ -87,8 +90,8 @@ for (var i = 0; i < parslen; ++i) {
     curr_par = 'index';
   } else if (pars[i] === '-v' || pars[i] === '--verbose') {
     conf.verbose = true;
-  } else if (pars[i] === '-o' || pars[i] === '--out') {
-    curr_par = 'file';
+  } else if (pars[i] === '--data-dir') {
+    curr_par = 'path';
   } else if (pars[i] === '--min-count') {
     curr_par = 'minCount';
   } else if (pars[i] === '-D' || pars[i] === '--domains-list') {
@@ -116,29 +119,45 @@ for (var i = 0; i < parslen; ++i) {
 
 //  actions --------------------------------------------------------------------------------------//
 
+//  "process.exit(...)" below is a courtesy to a node v0.10 in ubuntu 14 (fuck, yeah)
+
 if (action === 'collect') {
 
   if ( conf.domain.length === 0 ) {
     logger.error('\n    domain name(s) required.');
     showHelp();
+    process.exit(0);
     return;
   }
 
-  if (!conf.file) {
-    conf.file = conf.domain[0];
-    if ( conf.domain.length > 1 ) {
-      conf.file += '.' + conf.domain.length;
-    }
+  conf.path = conf.path || './';
+  if ( conf.path.substr( -1 ) !== '/' ) {
+    conf.path += '/';
   }
 
-  try {
-    logs.aggregateTopRequests(conf)
-      .then(function(res) {
-        logger.info('file ' + conf.file + '.json, ' + res.length + ' total records saved.' );
-        fs.writeFileAsync(conf.file + '.json', JSON.stringify(res, null, 2), 'utf8');
+  if ( conf.domain[0].substr( 0, 1 ) === '@' ) {
+    fs.readFileAsync( conf.domain[0].substr(1), 'utf8' )
+      .then( JSON.parse )
+      .then( function( data ) {
+        logger.info( data.length + ' domain names loaded ...' );
+        conf.domain = data;
+        return logs.aggregateTopRequests( conf );
+      }).then(function() {
+        process.exit(0);
+      })
+      .catch( function( err ) {
+        logger.error( 'Collect mode error: ', err );
+        process.exit(1);
       });
-  } catch ( e ) {
-    logger.error( 'Collect mode error: ', e );
+  } else {
+    logs.aggregateTopRequests( conf )
+      .then(function() {
+        process.exit(0);
+      })
+      .catch( function( err ) {
+        logger.error( 'Collect mode error: ', err );
+        process.exit(1);
+      });
   }
 
   return;
@@ -150,6 +169,7 @@ if (action === 'health') {
   logs.health(conf)
     .then(function(res) {
       logger.info('Cluster health status:\n', res);
+      process.exit(0);
     });
 
   return;
@@ -161,6 +181,7 @@ if (action === 'domains') {
   logs.domainsList(conf)
     .then(function(res) {
       logger.info('Domains list:', res);
+      process.exit(0);
     });
 
   return;
@@ -172,6 +193,7 @@ if (action === 'indices') {
   logs.indicesList(conf)
     .then(function(res) {
       logger.info('Indices list:\n', res);
+      process.exit(0);
     });
 
   return;

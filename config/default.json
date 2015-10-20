@@ -1,19 +1,4 @@
 {
-  "elastic": {
-    "host": "TESTSJC20-ES01.revsw.net:9200",
-    "version": "1.5"
-  },
-  "proxies": {
-    "production": "http://lga02-bp01.revsw.net",
-    "testing": "http://lga02-bp02.revsw.net"
-  },
-  "defaults": {
-    "topAgents": 50,
-    "topReferers": 100,
-    "topURLs": 100,
-    "minCount": 200,            //  least amount of hits for the any combination of the url, port, method, agent and referer
-    "tooBigContent": 1048576    //  1M
-  },
   "log_config": {
     "transports": {
       "Console": {
@@ -34,6 +19,49 @@
       }
     }
   },
+  "elastic": {
+    "host": "TESTSJC20-ES01.revsw.net:9200",
+    "version": "1.5"
+  },
+  "proxies": {
+    "production": "http://lga02-bp01.revsw.net",
+    "testing": "http://lga02-bp02.revsw.net"
+  },
+  "defaults": {
+    "topAgents": 50,
+    "topReferers": 100,
+    "topURLs": 100,
+    "minCount": 100,            //  least amount of hits for the any combination of the url, port, method, agent and referer
+    "tooBigContent": 1048576,   //  1M
+    "requestsConcurrency": 32,
+    "requestsDelay": 100
+  },
+  "domains": [
+    { "name": "www.metacafe.com", "opts": { "minCount": 500 } },
+    { "name": "s4.mcstatic.com", "opts": { "minCount": 300 } },
+    { "name": "s6.mcstatic.com", "opts": { "minCount": 300 } },
+    { "name": "s3.mcstatic.com", "opts": { "minCount": 300 } },
+    { "name": "s.mcstatic.com", "opts": { "minCount": 300 } },
+    { "name": "s1.mcstatic.com", "opts": { "minCount": 300 } },
+    { "name": "res.mccont.com", "opts": { "minCount": 300 } },
+    { "name": "cedexis-radar.revdn.net", "opts": { "minCount": 300 } },
+    { "name": "static.treato.com", "opts": { "minCount": 100 } },
+    { "name": "vl.mccont.com", "opts": { "minCount": 100 } },
+    { "name": "m.jisusaiche.com", "opts": { "minCount": 100 } },
+    { "name": "monitor.revsw.net", "opts": { "minCount": 100 } },
+    { "name": "cdn.mbeans2.com", "opts": { "minCount": 100 } },
+    { "name": "cdn.vmturbo.com", "opts": { "minCount": 100 } },
+    { "name": "mbeans.com", "opts": { "minCount": 100 } },
+    { "name": "cdn.footankleinstitute.com", "opts": { "minCount": 30 } },
+    { "name": "www.revsw.com", "opts": { "minCount": 10 } },
+    { "name": "www.victor-gartvich.com", "opts": { "minCount": 10 } },
+    { "name": "www.forgestrategy.com", "opts": { "minCount": 10 } },
+    { "name": "assets.virtualsky.com", "opts": { "minCount": 40 } },
+    { "name": "www.saqqent.com", "opts": { "minCount": 25 } },
+    { "name": "www.revapm.com", "opts": { "minCount": 10 } },
+    { "name": "revsw.com", "opts": { "minCount": 10 } },
+    { "name": "www.mbeans.com", "opts": { "minCount": 5 } }
+  ],
   "comparators": {
     "default": {
       "content-type": {},

@@ -1,28 +1,29 @@
 {
-    "name": "revsw-proxy-tester",
-    "version": "0.1.0",
-    "description": "A tool to test the functionality of new proxy server versions",
-    "main": "app.js",
-    "scripts": {
-        "test": "mocha",
-        "run": "node collect.js --help"
-    },
-    "author": "DmitryM <googgah@gmail.com>",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/revrepo/revsw-proxy-tester"
-    },
-    "license": "WTFPL",
-    "dependencies": {
-        "underscore": "*",
-        "bluebird": "*",
-        "config": "*",
-        "elasticsearch": "*",
-        "request": "*",
-        "revsw-logger": "*"
-    },
-    "devDependencies": {
-        "mocha": "*",
-        "chai": "*"
-    }
+  "name": "revsw-proxy-tester",
+  "version": "0.1.0",
+  "description": "A tool to test the functionality of new proxy server versions",
+  "main": "app.js",
+  "scripts": {
+    "test": "mocha",
+    "run": "node collect.js --help"
+  },
+  "author": "DmitryM <googgah@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/revrepo/revsw-proxy-tester"
+  },
+  "license": "WTFPL",
+  "dependencies": {
+    "bluebird": "*",
+    "config": "*",
+    "elasticsearch": "*",
+    "glob": "^5.0.15",
+    "request": "*",
+    "revsw-logger": "*",
+    "underscore": "*"
+  },
+  "devDependencies": {
+    "mocha": "*",
+    "chai": "*"
+  }
 }

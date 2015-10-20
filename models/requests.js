@@ -54,6 +54,7 @@ var buildReq = function( data ) {
       'User-Agent': data.agent,
       'Referer': data.referer
     },
+    followRedirect: false,
     timeout: 15000
   };
 };
@@ -65,8 +66,8 @@ var buildReq = function( data ) {
 var fire_four_ = function( opts ) {
 
   var resolve,
-    deferred = new promise( function( rslv /*, reject*/ ) {
-      resolve = rslv;
+    deferred = new promise( function( yes /*, reject*/ ) {
+      resolve = yes;
     });
 
   var responses = {
@@ -78,11 +79,51 @@ var fire_four_ = function( opts ) {
   fires[0].proxy = cached_opts.proxy_prod;
   fires[1].proxy = cached_opts.proxy_test;
 
-  var inner = promise.resolve( true );
+  var run_seq,
+    seq = new promise( function( run /*, reject*/ ) {
+      run_seq = run;
+    });
+
+  seq
+    .then( function() {
+      return promise.delay( defaults.requestsDelay );
+    })
+    .then( function() {
+
+      logger.verbose( 'fired ' + opts.method + ':' + opts.url );
+      var fired = fires.map( function( request ) {
+        return req( request );
+      });
+      return promise.all( fired );
+    })
+    .then( function( resp ) {
+
+      responses.headers_prod_1st = resp[0][0].headers;
+      responses.headers_test_1st = resp[1][0].headers;
+
+      //  same requests again
+      var fired = fires.map( function( request ) {
+        return req( request );
+      });
+      return promise.all( fired );
+    })
+    .then( function( resp ) {
+
+      responses.headers_prod = resp[0][0].headers;
+      responses.headers_test = resp[1][0].headers;
+
+      logger.verbose( ' completed ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+      resolve( responses );
+    })
+    .catch( function( e ) {
+      logger.verbose( ' * nope, error ' + ( e.message ? e.message : '' ) + ': ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+      resolve( false );
+      return true;
+    });
 
   if ( opts.method === 'GET' ) {
     //  first check the size of content, send HEAD instead of GET
-    inner
+    promise.resolve( true )
       .then( function() {
         opts.method = 'HEAD';
         return req( opts );
@@ -91,54 +132,21 @@ var fire_four_ = function( opts ) {
         opts.method = 'GET';
 
         //  then check the [content-length] header
-        if ( resp[0].headers[ 'content-length' ] === undefined ||
-             parseInt( resp[0].headers[ 'content-length' ] ) > defaults.tooBigContent ) {
-
-          // logger.warn( resp[0].headers );
-
-          logger.verbose( ' - too big or undefined content length: ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
-          resolve( false );
-          return false;
+        if ( resp[0].headers[ 'content-length' ] === undefined ) {
+          if ( resp[0].headers[ 'content-type' ] !== undefined && resp[0].headers[ 'content-type' ].substr( 0, 5 ) === 'video' ) {
+            logger.verbose( ' - cancel, content is video with undefined length: ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+            resolve( false );
+            return false;
+          }
+        } else {
+          if ( parseInt( resp[0].headers[ 'content-length' ] ) > defaults.tooBigContent ) {
+            logger.verbose( ' - cancel, too big content length: ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
+            resolve( false );
+            return false;
+          }
         }
+        run_seq();
         return true;
-      })
-      .then( function( resp ) {
-        if ( !resp ) {
-          // fall through
-          return false;
-        }
-
-        logger.verbose( 'fired ' + opts.method + ':' + opts.url );
-        var fired = fires.map( function( request ) {
-          return req( request );
-        });
-        return promise.all( fired );
-      })
-      .then( function( resp ) {
-        if ( !resp ) {
-          // fall through
-          return false;
-        }
-
-        responses.headers_prod_1st = resp[0][0].headers;
-        responses.headers_test_1st = resp[1][0].headers;
-
-        //  same requests again
-        var fired = fires.map( function( request ) {
-          return req( request );
-        });
-        return promise.all( fired );
-      })
-      .then( function( resp ) {
-        if ( !resp ) {
-          return false;
-        }
-
-        responses.headers_prod = resp[0][0].headers;
-        responses.headers_test = resp[1][0].headers;
-
-        logger.verbose( ' completed ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
-        resolve( responses );
       })
       .catch( function( e ) {
         logger.verbose( ' * error ' + ( e.message ? e.message : '' ) + ': ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
@@ -147,51 +155,7 @@ var fire_four_ = function( opts ) {
       });
 
   } else {
-
-    inner
-      .then( function( resp ) {
-        if ( !resp ) {
-          // fall through
-          return false;
-        }
-
-        logger.verbose( 'fired ' + opts.method + ':' + opts.url );
-        var fired = fires.map( function( request ) {
-          return req( request );
-        });
-        return promise.all( fired );
-      })
-      .then( function( resp ) {
-        if ( !resp ) {
-          // fall through
-          return false;
-        }
-
-        responses.headers_prod_1st = resp[0][0].headers;
-        responses.headers_test_1st = resp[1][0].headers;
-
-        //  same requests again
-        var fired = fires.map( function( request ) {
-          return req( request );
-        });
-        return promise.all( fired );
-      })
-      .then( function( resp ) {
-        if ( !resp ) {
-          return false;
-        }
-
-        responses.headers_prod = resp[0][0].headers;
-        responses.headers_test = resp[1][0].headers;
-
-        logger.verbose( ' completed ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
-        resolve( responses );
-      })
-      .catch( function( e ) {
-        logger.verbose( ' * nope, error ' + ( e.message ? e.message : '' ) + ': ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
-        resolve( false );
-        return true;
-      });
+    run_seq();
   }
 
   return deferred;
@@ -209,16 +173,22 @@ exports.fire = function( req_array, opts ) {
     logger.transports.console.level = 'verbose';
   }
 
+  //  shuffle requests array to avoid/relax domain requests bombing
+  var req_array_len = req_array.length;
+  while ( req_array_len ) {
+      req_array.push( req_array.splice( Math.floor( Math.random() * --req_array_len ), 1 )[0] );
+  }
+
   cached_count = req_array.length;
   cached_req_array = [];
-  for ( var i = 0, len = req_array.length; i < len; ++i ) {
+  for ( var i = 0; i < cached_count; ++i ) {
     cached_req_array.push({
       request: buildReq( req_array[i] ),
       domain: req_array[i].domain
     });
   }
 
-  return promise.map( cached_req_array, fire_four_, { concurrency: 64 } )
+  return promise.map( cached_req_array, fire_four_, { concurrency: defaults.requestsConcurrency } )
     .catch( function( err ) {
       logger.error( 'requests model, fire(...), error:', err );
     });
@@ -378,6 +348,7 @@ exports.fire1 = function( url, opts ) {
       method: opts.method,
       tunnel: false,
       headers: {},
+      followRedirect: false,
       timeout: opts.timeout
     },
     domain: domain

@@ -65,7 +65,8 @@ var logs = require( '../models/logs.js' ),
           ],
           index: 'logstash-2015*',
           minCount: 30,
-          silent: true
+          silent: true,
+          test_responses: true
         } )
         .then( function( data ) {
           // console.log( data );

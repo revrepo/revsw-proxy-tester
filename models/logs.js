@@ -22,23 +22,23 @@
 var _ = require( 'underscore' ),
   elastic = require( 'elasticsearch' ),
   promise = require( 'bluebird' ),
+  fs = promise.promisifyAll( require( 'fs' ) ),
   app_config = require( 'config' ),
   logger = require( 'revsw-logger' )( app_config.get( 'log_config' ) );
 
 //  ---------------------------------
-//  create logstash index name for the current date(today): "logstash-2015.10.01"
+//  create logstash index name from yesterday's date, like: "logstash-2015.10.10"
 var last_index_ = function() {
-  return 'logstash-' + ( new Date() ).toISOString().substr( 0, 10 ).replace( /\-/g, '.' );
+  var d = new Date();
+  d.setDate( d.getDate() - 1 );
+  return 'logstash-' + d.toISOString().substr( 0, 10 ).replace( /\-/g, '.' );
 };
 
 //  ---------------------------------
 //  defaults
 var defaults = app_config.get( 'defaults' ),
-  elastic_config = app_config.get( 'elastic' );
-  // topAgents: 50,
-  // topReferers: 100,
-  // topURLs: 100,
-  // minCount: 200, //  least amount of hits for the any combination of the url, port, method, agent and referer
+  elastic_config = app_config.get( 'elastic' ),
+  domains_config = app_config.get( 'domains' );
 
 
 var client = new elastic.Client( {
@@ -77,7 +77,10 @@ exports.indicesList = function( opts ) {
   opts.index = opts.index || 'logstash-*';
   if ( opts.verbose ) {
     opts.v = true;
+    logger.transports.console.level = 'verbose';
   }
+
+  logger.verbose( 'options: ', opts );
 
   return client.cat.indices( opts )
     .error( function( err ) {
@@ -98,9 +101,15 @@ exports.domainsList = function( opts ) {
   opts = opts || {};
   opts.minCount = parseInt( opts.minCount || 1000 );
   opts.size = parseInt( opts.size || 100 );
+  opts.index = opts.index || last_index_();
+
+  if ( opts.verbose ) {
+    logger.transports.console.level = 'verbose';
+  }
+  logger.verbose( 'options: ', opts );
 
   return client.search( {
-    index: opts.index || last_index_(),
+    index: opts.index,
     size: 0,
     body: {
       aggs: {
@@ -172,13 +181,13 @@ var handle_aggregated_stage_2_ = function( resp ) {
         //  some records have no referer at all or have it null'ed, tey're grouped by the "missing_referer" agg
         current.referer = '';
         current.count = agent.missing_referer.doc_count;
-        flat.push( current );
+        flat.push( _.clone( current ) );
       }
 
       _.each( agent.group_by_referer.buckets, function( referer ) {
         current.referer = referer.key;
         current.count = referer.doc_count;
-        flat.push( current );
+        flat.push( _.clone( current ) );
       } );
     } );
 
@@ -254,11 +263,8 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
   curr_opts = opts;
   curr_opts.rcount = 0;
 
-  if ( opts.verbose ) {
-    logger.transports.console.level = 'verbose';
-  }
   logger.verbose( 'config: ', opts );
-  logger.info( '1st lvl aggregation started' );
+  logger.info( opts.domain + ': 1st lvl aggregation started' );
   var took = Date.now();
 
   return client.search( {
@@ -317,6 +323,7 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
   } ).then( function( resp ) {
 
     var responses = handle_aggregated_stage_1_( resp, opts.domain );
+
     took = ( ( Date.now() - took ) / 1000 ).toFixed( 2 );
     logger.info( '1st lvl done, ' + responses.length + ' records, in ' + took + 's' );
     took = Date.now();
@@ -329,9 +336,13 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
 
     var responses = handle_aggregated_stage_2_( resp );
     took = ( ( Date.now() - took ) / 1000 ).toFixed( 2 );
-    logger.info( '2nd lvl done, ' + responses.length + ' records, in ' + took + 's' );
+    logger.info( opts.domain + ': 2nd lvl done, ' + responses.length + ' records, in ' + took + 's' );
 
-    return responses;
+    if ( opts.test_responses ) {
+      return responses;
+    }
+
+    return fs.writeFileAsync( opts.path + opts.domain + '.json', JSON.stringify( responses, null, 2 ), 'utf8' );
 
   } ).error( function( err ) {
     logger.error( 'Logs model, aggregateTopRequests(...), Elasticsearch error:', err );
@@ -368,6 +379,7 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
 exports.aggregateTopRequests = function( options ) {
 
   options = options || {};
+  options.index = options.index || last_index_();
   if ( process.env.NODE_ENV === 'production' &&
       ( options.index.indexOf( '*' ) !== -1 ||
         options.index.indexOf( '?' ) !== -1 ) ) {
@@ -384,23 +396,36 @@ exports.aggregateTopRequests = function( options ) {
     logger.transports.console.level = 'verbose';
   }
 
-  _.defaults( options, defaults );
-  options.index = options.index || last_index_();
-  options.minCount = parseInt( options.minCount );
-  options.minCount2Lvl = Math.ceil( options.minCount / 4 );
-
+  //  build options object for every domain in the list
   var opts = [];
   for ( var i = 0, len = options.domain.length; i < len; ++i ) {
-      var opt = _.clone( options );
-      opt.domain = options.domain[i];
-      opts.push( opt );
+
+    /* jshint loopfunc: true */
+    //  load specialized options for the current domain
+    var domain_opts = _.find( domains_config, function( domain ) {
+      return domain.name === options.domain[i];
+    }) || {};
+    domain_opts = _.defaults( {}, options, domain_opts.opts, defaults );
+
+    domain_opts.minCount = parseInt( domain_opts.minCount );
+    domain_opts.minCount2Lvl = Math.ceil( domain_opts.minCount / 4 );
+
+    domain_opts.domain = domain_opts.domain[i];
+    opts.push( domain_opts );
   }
 
   return promise.map( opts, aggregateTopRequests_1_domain_, { concurrency: 1 } )
     .then( function( responses ) {
-      //  [[a,b,c], [d,e], [f,g], [h,i,j]] --> [a,b,c,d,e,f,g,h,i,j]
-      return Array.prototype.concat.apply( [], responses );
+      if ( options.test_responses ) {
+        var res = [];
+        for ( var i = 0, len = opts.length; i < len; ++i ) {
+          res.push({
+            options: opts[i],
+            responses: responses[i]
+          });
+        }
+        return res;
+      }
     });
-
 };
 

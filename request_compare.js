@@ -23,8 +23,10 @@
 var reqs = require('./models/requests.js'),
   promise = require('bluebird'),
   fs = promise.promisifyAll(require('fs')),
+  glob = promise.promisify(require( 'glob' )),
   app_config = require('config'),
   logger = require('revsw-logger')(app_config.get('log_config'));
+
 
 //  CLI -----------------------------
 
@@ -34,7 +36,10 @@ var showHelp = function() {
   console.log('    -C :');
   console.log('        RequestCompare mode, default');
   console.log('    -i, --input :');
-  console.log('        file name to get data from, required for the RequestCompare mode, assuming json');
+  console.log('        file name(glob is ok, but enclose it in quotes) to get data from');
+  console.log('        required for the RequestCompare mode, assuming json format');
+  console.log('    -o, --out :');
+  console.log('        file name to save failed results if any, optional, ISO date string used if omitted');
   console.log('    --prod-proxy :');
   console.log('        production BP server (lga02-bp01.revsw.net is default)');
   console.log('    --test-proxy :');
@@ -72,6 +77,8 @@ for (var i = 0; i < parslen; ++i) {
     curr_par = false;
   } else if (pars[i] === '-i' || pars[i] === '--input') {
     curr_par = 'file';
+  } else if (pars[i] === '-o' || pars[i] === '--out') {
+    curr_par = 'output';
   } else if (pars[i] === '--prod-proxy') {
     curr_par = 'proxy_prod';
   } else if (pars[i] === '--test-proxy') {
@@ -96,21 +103,39 @@ for (var i = 0; i < parslen; ++i) {
 
 //  ----------------------------------------------------------------------------------------------//
 
+//  "process.exit(...)" below is a courtesy to a node v0.10 in ubuntu 14 (fuck, yeah) and/or to Jenkins
+
 var ratio = 0,
   took;
 
 if ( action === 'rnc' ) {
 
   if (!conf.file) {
-    logger.error('\n    input file name required.');
+    logger.error('\n    input file name/glob required.');
     showHelp();
+    process.exit(0);
     return;
   }
 
-  fs.readFileAsync(conf.file)
-    .then(JSON.parse)
-    .then(function(requests) {
-      logger.info(requests.length + ' logged requests loaded. fired ...');
+  glob( conf.file )
+    .then( function( files ) {
+      // console.log( files );
+      return promise.map( files, function( file ) {
+        return fs.readFileAsync( file )
+          .then( function( data ) {
+            logger.info( file + ' loaded' );
+            return data;
+          })
+          .then( JSON.parse )
+          .catch( SyntaxError, function( e ) {
+            e.fileName = file;
+            throw e;
+          });
+      });
+    })
+    .then( function( requests_arrays ) {
+      var requests = Array.prototype.concat.apply( [], requests_arrays );
+      logger.info(requests.length + ' total requests loaded. fired ...');
       took = Date.now();
       return reqs.fire(requests, conf);
     })
@@ -130,8 +155,11 @@ if ( action === 'rnc' ) {
 
       if (diffs.length) {
         logger.warn('errors: ', errors);
-        logger.warn('diffs are being saved to ' + conf.file + '.diff.json');
-        return fs.writeFileAsync(conf.file + '.diff.json', JSON.stringify(diffs, null, 2));
+        if ( !conf.output ) {
+          conf.output = (new Date()).toISOString().substr(0,16).replace(/(\:|T)/g,'-') + '.diff.json';
+        }
+        logger.warn('diffs are being saved to ' + conf.output );
+        return fs.writeFileAsync(conf.output, JSON.stringify(diffs, null, 2));
       }
     })
     .then(function() {
@@ -154,6 +182,7 @@ if ( action === 'test' ) {
   if ( !conf.url ) {
     logger.error('\n    URL required for the test mode.');
     showHelp();
+    process.exit(0);
     return;
   }
 
@@ -161,6 +190,7 @@ if ( action === 'test' ) {
   reqs.fire1( conf.url, conf )
     .then( function( data ) {
       logger.info( data );
+      process.exit(0);
     });
 
 }
