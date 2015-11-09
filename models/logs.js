@@ -211,17 +211,13 @@ var run_second_query_ = function( data ) {
     size: 0,
     body: {
       query: {
-        filtered: {
-          filter: {
-            bool: {
-              must: [
-                { term: { 'domain': curr_opts.domain } },
-                { term: { method: data.method } },
-                { term: { ipport: data.ipport } },
-                { term: { 'request': data.request } },
-              ]
-            }
-          }
+        bool: {
+          must: [
+            { term: { 'domain': curr_opts.domain } },
+            { term: { method: data.method } },
+            { term: { ipport: data.ipport } },
+            { term: { 'request': data.request } },
+          ]
         }
       },
       aggs: {
@@ -273,19 +269,15 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
     size: 0,
     body: {
       query: {
-        filtered: {
-          filter: {
-            bool: {
-              must: [
-                { term: { 'domain': opts.domain } },
-              ],
-              should: [
-                { term : { method: 'get' } },
-                { term : { method: 'head' } },
-                { term : { method: 'post' } },
-              ]
-            }
-          }
+        bool: {
+          must: [
+            { term: { 'domain': opts.domain } },
+          ],
+          should: [
+            { term : { method: 'get' } },
+            { term : { method: 'head' } },
+            { term : { method: 'post' } },
+          ]
         }
       },
       aggs: {
