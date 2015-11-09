@@ -1,7 +1,6 @@
 {
     "elastic": {
-        // "host": "IAD02-ES01.revsw.net:9200",
         "host": "LGA02-ESURL01.revsw.net:9200",
-        "version": "1.5"
+        "version": "1.7"
     }
 }
