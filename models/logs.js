@@ -115,7 +115,7 @@ exports.domainsList = function( opts ) {
       aggs: {
         group_by_domain: {
           terms: {
-            field: 'domain.raw',
+            field: 'domain',
             size: opts.size,
             min_doc_count: opts.minCount,
             exclude: '-'
@@ -215,10 +215,10 @@ var run_second_query_ = function( data ) {
           filter: {
             bool: {
               must: [
-                { term: { 'domain.raw': curr_opts.domain } },
+                { term: { 'domain': curr_opts.domain } },
                 { term: { method: data.method } },
                 { term: { ipport: data.ipport } },
-                { term: { 'request.raw': data.request } },
+                { term: { 'request': data.request } },
               ]
             }
           }
@@ -227,7 +227,7 @@ var run_second_query_ = function( data ) {
       aggs: {
         group_by_agent: {
           terms: {
-            field: 'agent.raw',
+            field: 'agent',
             size: curr_opts.topAgents,
             min_doc_count: curr_opts.minCount2Lvl,
             collect_mode: 'breadth_first',
@@ -235,7 +235,7 @@ var run_second_query_ = function( data ) {
           aggs: {
             group_by_referer: {
               terms: {
-                field: 'referer.raw',
+                field: 'referer',
                 size: curr_opts.topReferers,
                 min_doc_count: curr_opts.minCount2Lvl,
                 collect_mode: 'breadth_first',
@@ -277,7 +277,7 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
           filter: {
             bool: {
               must: [
-                { term: { 'domain.raw': opts.domain } },
+                { term: { 'domain': opts.domain } },
               ],
               should: [
                 { term : { method: 'get' } },
@@ -308,7 +308,7 @@ var aggregateTopRequests_1_domain_ = function( opts ) {
               aggs: {
                 group_by_request: {
                   terms: {
-                    field: 'request.raw',
+                    field: 'request',
                     size: opts.topURLs,
                     min_doc_count: opts.minCount,
                     collect_mode: 'breadth_first',
