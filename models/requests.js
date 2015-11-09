@@ -98,8 +98,9 @@ var fire_four_ = function( opts ) {
     })
     .then( function( resp ) {
 
-      responses.headers_prod_1st = resp[0][0].headers;
-      responses.headers_test_1st = resp[1][0].headers;
+      // logger.verbose( 'response1: ', resp );
+      responses.headers_prod_1st = resp[0].headers;
+      responses.headers_test_1st = resp[1].headers;
 
       //  same requests again
       var fired = fires.map( function( request ) {
@@ -109,8 +110,9 @@ var fire_four_ = function( opts ) {
     })
     .then( function( resp ) {
 
-      responses.headers_prod = resp[0][0].headers;
-      responses.headers_test = resp[1][0].headers;
+      // logger.verbose( 'response2: ', resp );
+      responses.headers_prod = resp[0].headers;
+      responses.headers_test = resp[1].headers;
 
       logger.verbose( ' completed ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
       resolve( responses );
@@ -131,15 +133,17 @@ var fire_four_ = function( opts ) {
       .then( function( resp ) {
         opts.method = 'GET';
 
+        // logger.verbose( 'response3: ', resp );
+
         //  then check the [content-length] header
-        if ( resp[0].headers[ 'content-length' ] === undefined ) {
-          if ( resp[0].headers[ 'content-type' ] !== undefined && resp[0].headers[ 'content-type' ].substr( 0, 5 ) === 'video' ) {
+        if ( resp.headers[ 'content-length' ] === undefined ) {
+          if ( resp.headers[ 'content-type' ] !== undefined && resp.headers[ 'content-type' ].substr( 0, 5 ) === 'video' ) {
             logger.verbose( ' - cancel, content is video with undefined length: ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
             resolve( false );
             return false;
           }
         } else {
-          if ( parseInt( resp[0].headers[ 'content-length' ] ) > defaults.tooBigContent ) {
+          if ( parseInt( resp.headers[ 'content-length' ] ) > defaults.tooBigContent ) {
             logger.verbose( ' - cancel, too big content length: ' + opts.method + ':' + opts.url + ' (' + ( --cached_count ) + ')' );
             resolve( false );
             return false;
