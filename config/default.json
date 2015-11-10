@@ -85,11 +85,46 @@
         // "etag": "\"ebad6-32183-5204253e4fec0\"",
       }
     },
+    "cdn.mbeans2.com": {
+      "last-modified": {
+        //  'Wed, 16 Sep 2015 12:40:52 GMT' and 'Wed, 16 Sep 2015 12:40:54 GMT'
+        //  difference less then 60 minutes is ok
+        "comparator": "return ( ( new Date( prod ) ).getTime() - ( new Date( test ) ).getTime() < 3600000 );"
+      }
+    },
+    "s.mcstatic.com": {
+      "last-modified": {
+        //  'Wed, 16 Sep 2015 12:40:52 GMT' and 'Wed, 16 Sep 2015 12:40:54 GMT'
+        //  difference less then 60 minutes is ok
+        "comparator": "return ( ( new Date( prod ) ).getTime() - ( new Date( test ) ).getTime() < 3600000 );"
+      }
+    },
     "s1.mcstatic.com": {
       "last-modified": {
         //  'Wed, 16 Sep 2015 12:40:52 GMT' and 'Wed, 16 Sep 2015 12:40:54 GMT'
-        //  difference less then 5 seconds is ok
-        "comparator": "return ( ( new Date( prod ) ).getTime() - ( new Date( test ) ).getTime() < 5000 );"
+        //  difference less then 60 minutes is ok
+        "comparator": "return ( ( new Date( prod ) ).getTime() - ( new Date( test ) ).getTime() < 3600000 );"
+      }
+    },
+    "s3.mcstatic.com": {
+      "last-modified": {
+        //  'Wed, 16 Sep 2015 12:40:52 GMT' and 'Wed, 16 Sep 2015 12:40:54 GMT'
+        //  difference less then 60 minutes is ok
+        "comparator": "return ( ( new Date( prod ) ).getTime() - ( new Date( test ) ).getTime() < 3600000 );"
+      }
+    },
+    "s4.mcstatic.com": {
+      "last-modified": {
+        //  'Wed, 16 Sep 2015 12:40:52 GMT' and 'Wed, 16 Sep 2015 12:40:54 GMT'
+        //  difference less then 60 minutes is ok
+        "comparator": "return ( ( new Date( prod ) ).getTime() - ( new Date( test ) ).getTime() < 3600000 );"
+      }
+    },
+    "s6.mcstatic.com": {
+      "last-modified": {
+        //  'Wed, 16 Sep 2015 12:40:52 GMT' and 'Wed, 16 Sep 2015 12:40:54 GMT'
+        //  difference less then 60 minutes is ok
+        "comparator": "return ( ( new Date( prod ) ).getTime() - ( new Date( test ) ).getTime() < 3600000 );"
       }
     }
   }
